@@ -1,0 +1,26 @@
+{
+  "name": "places",
+  "description": "上海学习地图地点集合",
+  "fields": {
+    "name": "string",
+    "category": "string",
+    "latitude": "number",
+    "longitude": "number",
+    "address": "string",
+    "hours": "string",
+    "phone": "string",
+    "tags": "array<string>",
+    "description": "string",
+    "priority": "string",
+    "photos": "array<string>",
+    "source": "string",
+    "updatedAt": "string"
+  },
+  "categories": [
+    "图书馆",
+    "党群服务中心",
+    "社区食堂",
+    "书店",
+    "自习室"
+  ]
+}

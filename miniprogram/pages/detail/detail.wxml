@@ -1,0 +1,93 @@
+<view class="page detail-page" wx:if="{{place}}">
+  <scroll-view class="photo-strip" wx:if="{{place.photos.length}}" scroll-x enhanced show-scrollbar="{{false}}">
+    <view class="photo-row">
+      <block wx:for="{{place.photos}}" wx:key="*this">
+        <image class="place-photo" src="{{item}}" mode="aspectFill" />
+      </block>
+    </view>
+  </scroll-view>
+
+  <view class="hero">
+    <view class="category">{{place.category}}</view>
+    <view class="title">{{place.name}}</view>
+    <view class="address">{{place.address}}</view>
+  </view>
+
+  <view class="action-row">
+    <button class="primary-button action-button" bindtap="openLocation">导航</button>
+    <button class="secondary-button action-button" bindtap="toggleFavorite">{{isFavorite ? '已收藏' : '收藏'}}</button>
+    <button class="secondary-button action-button" wx:if="{{place.phone}}" bindtap="callPhone">电话</button>
+  </view>
+
+  <view class="section map-section">
+    <view class="section-title">位置</view>
+    <map
+      class="detail-map"
+      latitude="{{place.latitude}}"
+      longitude="{{place.longitude}}"
+      scale="16"
+      markers="{{mapMarkers}}"
+    />
+  </view>
+
+  <view class="section">
+    <view class="section-title">开放时间</view>
+    <view class="section-body">{{place.hours || '以现场公示为准'}}</view>
+  </view>
+
+  <view class="section" wx:if="{{place.description}}">
+    <view class="section-title">简介</view>
+    <view class="section-body">{{place.description}}</view>
+  </view>
+
+  <view class="section" wx:if="{{place.tags.length}}">
+    <view class="section-title">标签</view>
+    <view class="tag-row">
+      <block wx:for="{{place.tags}}" wx:key="*this">
+        <text class="tag">{{item}}</text>
+      </block>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="nearby-header">
+      <view>
+        <view class="section-title">周边 2 公里</view>
+        <view class="nearby-subtitle">{{nearbySummary}}</view>
+      </view>
+      <button class="nearby-toggle" bindtap="toggleNearby">{{nearbyOpen ? '收起' : '展开'}}</button>
+    </view>
+
+    <view wx:if="{{nearbyOpen}}">
+      <scroll-view class="nearby-category-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+        <view class="nearby-category-row">
+          <block wx:for="{{nearbyCategoryTabs}}" wx:key="name">
+            <button
+              class="nearby-category-chip {{item.active ? 'active' : ''}}"
+              data-category="{{item.name}}"
+              bindtap="toggleNearbyCategory"
+            >
+              <text class="category-dot" style="background: {{item.color}};"></text>
+              <text>{{item.name}}</text>
+            </button>
+          </block>
+        </view>
+      </scroll-view>
+
+      <view class="nearby-list" wx:if="{{nearbyPlaces.length}}">
+        <block wx:for="{{nearbyPlaces}}" wx:key="id">
+          <view class="nearby-item" data-id="{{item.id}}" bindtap="goToDetail">
+            <view class="nearby-main">
+              <view class="nearby-name">{{item.name}}</view>
+              <view class="nearby-meta">{{item.category}} · {{item.distanceText}} 公里</view>
+              <view class="nearby-address">{{item.address}}</view>
+            </view>
+            <view class="item-arrow">›</view>
+          </view>
+        </block>
+      </view>
+
+      <view class="nearby-empty" wx:else>附近暂无匹配地点</view>
+    </view>
+  </view>
+</view>

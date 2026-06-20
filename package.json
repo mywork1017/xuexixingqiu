@@ -1,0 +1,13 @@
+{
+  "name": "shanghai-study-map",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shanghai Study Map WeChat Mini Program",
+  "scripts": {
+    "build:places": "node scripts/build-places-import.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "antd-mini": "^3.4.3"
+  }
+}

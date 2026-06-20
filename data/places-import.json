@@ -1,0 +1,701 @@
+[
+  {
+    "_id": "place_13vpi3c",
+    "name": "上海图书馆东馆",
+    "category": "图书馆",
+    "latitude": 31.2039,
+    "longitude": 121.5504,
+    "address": "上海市浦东新区合欢路300号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "公共图书馆",
+      "阅览",
+      "自习"
+    ],
+    "description": "开放式阅读空间适合查阅资料安静阅读和短时自习",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_1ta2ppm",
+    "name": "上海图书馆",
+    "category": "图书馆",
+    "latitude": 31.2073,
+    "longitude": 121.4445,
+    "address": "上海市徐汇区淮海中路1555号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "公共图书馆",
+      "阅读",
+      "资料查询"
+    ],
+    "description": "市级公共图书馆适合阅读查阅和学习停留",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_124jf8g",
+    "name": "徐家汇书院",
+    "category": "图书馆",
+    "latitude": 31.1931,
+    "longitude": 121.4342,
+    "address": "上海市徐汇区漕溪北路158号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "公共图书馆",
+      "阅读"
+    ],
+    "description": "位于徐家汇核心区域适合阅读展览参观和学习停留",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_18jndeo",
+    "name": "浦东图书馆",
+    "category": "图书馆",
+    "latitude": 31.2097,
+    "longitude": 121.5448,
+    "address": "上海市浦东新区前程路88号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "公共图书馆",
+      "阅览",
+      "自习"
+    ],
+    "description": "浦东新区公共图书馆适合阅读和资料查询",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_1anm9kt",
+    "name": "黄浦区图书馆",
+    "category": "图书馆",
+    "latitude": 31.2252,
+    "longitude": 121.4752,
+    "address": "上海市黄浦区福州路655号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "公共图书馆",
+      "阅读"
+    ],
+    "description": "中心城区公共图书馆适合就近阅读和借阅",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_19ytxp0",
+    "name": "静安区图书馆",
+    "category": "图书馆",
+    "latitude": 31.2297,
+    "longitude": 121.4488,
+    "address": "上海市静安区新闸路1708号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "公共图书馆",
+      "阅读",
+      "自习"
+    ],
+    "description": "静安区公共阅读空间适合安静学习",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_1fw9y22",
+    "name": "长宁区图书馆",
+    "category": "图书馆",
+    "latitude": 31.2177,
+    "longitude": 121.4245,
+    "address": "上海市长宁区天山路356号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "公共图书馆",
+      "阅读"
+    ],
+    "description": "服务长宁居民的公共图书馆空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_lbk3a7",
+    "name": "杨浦区图书馆",
+    "category": "图书馆",
+    "latitude": 31.2666,
+    "longitude": 121.5236,
+    "address": "上海市杨浦区长海路366号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "公共图书馆",
+      "阅读",
+      "自习"
+    ],
+    "description": "杨浦区公共图书馆适合学习和阅读",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_1e78a6d",
+    "name": "虹口区图书馆",
+    "category": "图书馆",
+    "latitude": 31.2718,
+    "longitude": 121.4861,
+    "address": "上海市虹口区水电路1412号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "公共图书馆",
+      "阅读"
+    ],
+    "description": "虹口区公共文化阅读空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_4h6j5r",
+    "name": "普陀区图书馆",
+    "category": "图书馆",
+    "latitude": 31.2517,
+    "longitude": 121.3975,
+    "address": "上海市普陀区铜川路1278号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "公共图书馆",
+      "阅读",
+      "自习"
+    ],
+    "description": "普陀区公共图书馆适合借阅和学习",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_10b1o3z",
+    "name": "浦东新区党群服务中心",
+    "category": "党群服务中心",
+    "latitude": 31.2305,
+    "longitude": 121.5445,
+    "address": "上海市浦东新区锦绣路1001号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "党群服务",
+      "社区活动"
+    ],
+    "description": "面向社区居民提供党群服务和活动空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_10ko6xo",
+    "name": "黄浦区党群服务中心",
+    "category": "党群服务中心",
+    "latitude": 31.2313,
+    "longitude": 121.4843,
+    "address": "上海市黄浦区中山东二路538号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "党群服务",
+      "社区活动"
+    ],
+    "description": "黄浦区党群服务和社区活动空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_ncpwzc",
+    "name": "徐汇区党群服务中心",
+    "category": "党群服务中心",
+    "latitude": 31.1884,
+    "longitude": 121.4368,
+    "address": "上海市徐汇区漕溪北路336号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "党群服务",
+      "便民服务"
+    ],
+    "description": "徐汇区党群服务和便民活动空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_boaa6t",
+    "name": "静安区党群服务中心",
+    "category": "党群服务中心",
+    "latitude": 31.2292,
+    "longitude": 121.4597,
+    "address": "上海市静安区西康路658号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "党群服务",
+      "社区活动"
+    ],
+    "description": "静安区党群服务和社区共享空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_1ni28lz",
+    "name": "长宁区党群服务中心",
+    "category": "党群服务中心",
+    "latitude": 31.2203,
+    "longitude": 121.4246,
+    "address": "上海市长宁区天山路街道",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "党群服务",
+      "社区服务"
+    ],
+    "description": "长宁区党群服务和社区活动空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_6od51q",
+    "name": "普陀区党群服务中心",
+    "category": "党群服务中心",
+    "latitude": 31.2495,
+    "longitude": 121.3957,
+    "address": "上海市普陀区大渡河路1668号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "党群服务",
+      "便民服务"
+    ],
+    "description": "普陀区党群服务和公共活动空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_1udjp7r",
+    "name": "虹口区党群服务中心",
+    "category": "党群服务中心",
+    "latitude": 31.2688,
+    "longitude": 121.5052,
+    "address": "上海市虹口区飞虹路518号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "党群服务",
+      "社区活动"
+    ],
+    "description": "虹口区党群服务和社区便民空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_62vp0d",
+    "name": "杨浦区党群服务中心",
+    "category": "党群服务中心",
+    "latitude": 31.2616,
+    "longitude": 121.526,
+    "address": "上海市杨浦区江浦路549号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "党群服务",
+      "社区服务"
+    ],
+    "description": "杨浦区党群服务和社区活动空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_xynfoq",
+    "name": "静安寺街道社区食堂",
+    "category": "社区食堂",
+    "latitude": 31.2232,
+    "longitude": 121.4454,
+    "address": "上海市静安区静安寺街道",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "社区食堂",
+      "便民用餐"
+    ],
+    "description": "适合学习途中就近用餐的社区餐饮点",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_18pxl0u",
+    "name": "南京东路街道社区食堂",
+    "category": "社区食堂",
+    "latitude": 31.2369,
+    "longitude": 121.4805,
+    "address": "上海市黄浦区南京东路街道",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "社区食堂",
+      "便民用餐"
+    ],
+    "description": "中心城区社区便民用餐空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_g7u4y2",
+    "name": "五里桥街道社区食堂",
+    "category": "社区食堂",
+    "latitude": 31.2055,
+    "longitude": 121.4773,
+    "address": "上海市黄浦区五里桥街道",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "社区食堂",
+      "便民用餐"
+    ],
+    "description": "面向周边居民和学习人群的便民餐点",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_15m0jbh",
+    "name": "斜土路街道社区食堂",
+    "category": "社区食堂",
+    "latitude": 31.1937,
+    "longitude": 121.458,
+    "address": "上海市徐汇区斜土路街道",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "社区食堂",
+      "便民用餐"
+    ],
+    "description": "徐汇区社区便民用餐空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_1aq4gok",
+    "name": "天山路街道社区食堂",
+    "category": "社区食堂",
+    "latitude": 31.2148,
+    "longitude": 121.4133,
+    "address": "上海市长宁区天山路街道",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "社区食堂",
+      "便民用餐"
+    ],
+    "description": "长宁区社区便民用餐空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_daw8m",
+    "name": "曹杨新村街道社区食堂",
+    "category": "社区食堂",
+    "latitude": 31.2432,
+    "longitude": 121.4144,
+    "address": "上海市普陀区曹杨新村街道",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "社区食堂",
+      "便民用餐"
+    ],
+    "description": "普陀区社区便民用餐空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_odcwrc",
+    "name": "四川北路街道社区食堂",
+    "category": "社区食堂",
+    "latitude": 31.2603,
+    "longitude": 121.484,
+    "address": "上海市虹口区四川北路街道",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "社区食堂",
+      "便民用餐"
+    ],
+    "description": "虹口区社区便民用餐空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_13f468u",
+    "name": "五角场街道社区食堂",
+    "category": "社区食堂",
+    "latitude": 31.3037,
+    "longitude": 121.5146,
+    "address": "上海市杨浦区五角场街道",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "社区食堂",
+      "便民用餐"
+    ],
+    "description": "杨浦区社区便民用餐空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_zcdsvo",
+    "name": "思南书局",
+    "category": "书店",
+    "latitude": 31.2139,
+    "longitude": 121.4662,
+    "address": "上海市黄浦区复兴中路517号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "书店",
+      "阅读",
+      "人文"
+    ],
+    "description": "人文气质浓厚的书店空间适合阅读和选书",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_74jcg3",
+    "name": "朵云书院旗舰店",
+    "category": "书店",
+    "latitude": 31.2397,
+    "longitude": 121.5036,
+    "address": "上海市浦东新区银城中路501号上海中心大厦52层",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "书店",
+      "阅读",
+      "城市景观"
+    ],
+    "description": "高层文化书店适合阅读选书和城市观景",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_2zuja0",
+    "name": "钟书阁徐汇店",
+    "category": "书店",
+    "latitude": 31.186,
+    "longitude": 121.436,
+    "address": "上海市徐汇区绿地缤纷城",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "书店",
+      "阅读"
+    ],
+    "description": "适合选书和短时阅读停留的书店空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_1ei86ip",
+    "name": "上海书城福州路店",
+    "category": "书店",
+    "latitude": 31.2334,
+    "longitude": 121.4806,
+    "address": "上海市黄浦区福州路465号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "书店",
+      "图书",
+      "阅读"
+    ],
+    "description": "福州路传统图书零售空间适合集中选书",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_ouonbd",
+    "name": "建投书局上海浦江店",
+    "category": "书店",
+    "latitude": 31.2443,
+    "longitude": 121.4965,
+    "address": "上海市虹口区公平路18号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "书店",
+      "阅读",
+      "文化活动"
+    ],
+    "description": "滨江区域书店空间适合阅读和文化活动",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_1hjsmao",
+    "name": "衡山和集",
+    "category": "书店",
+    "latitude": 31.2042,
+    "longitude": 121.4462,
+    "address": "上海市徐汇区衡山路880号",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "书店",
+      "阅读",
+      "生活方式"
+    ],
+    "description": "衡山路附近的复合阅读和生活方式空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_1eg604o",
+    "name": "大隐书局创智天地店",
+    "category": "书店",
+    "latitude": 31.3011,
+    "longitude": 121.5138,
+    "address": "上海市杨浦区淞沪路388号创智天地",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "书店",
+      "阅读",
+      "咖啡"
+    ],
+    "description": "五角场附近适合阅读和交流的书店空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_12niwxw",
+    "name": "言几又上海长宁来福士店",
+    "category": "书店",
+    "latitude": 31.2173,
+    "longitude": 121.4179,
+    "address": "上海市长宁区长宁路1123号长宁来福士",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "书店",
+      "阅读",
+      "商业综合体"
+    ],
+    "description": "商业综合体内的阅读和选书空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_1tr17ax",
+    "name": "徐家汇自习室",
+    "category": "自习室",
+    "latitude": 31.1939,
+    "longitude": 121.4364,
+    "address": "上海市徐汇区徐家汇商圈",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "自习室",
+      "付费座位",
+      "安静学习"
+    ],
+    "description": "徐家汇周边适合长时间学习的自习空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_18mp8gy",
+    "name": "人民广场自习室",
+    "category": "自习室",
+    "latitude": 31.2326,
+    "longitude": 121.4755,
+    "address": "上海市黄浦区人民广场商圈",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "自习室",
+      "付费座位",
+      "备考"
+    ],
+    "description": "人民广场周边适合通勤学习和备考的自习空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_nx55po",
+    "name": "五角场自习室",
+    "category": "自习室",
+    "latitude": 31.3037,
+    "longitude": 121.5146,
+    "address": "上海市杨浦区五角场商圈",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "自习室",
+      "付费座位",
+      "安静学习"
+    ],
+    "description": "五角场周边适合长时间学习的自习空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_1yj8eys",
+    "name": "陆家嘴自习室",
+    "category": "自习室",
+    "latitude": 31.2396,
+    "longitude": 121.4998,
+    "address": "上海市浦东新区陆家嘴商圈",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "自习室",
+      "付费座位",
+      "办公学习"
+    ],
+    "description": "陆家嘴周边适合下班后学习的自习空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_82nkwc",
+    "name": "中山公园自习室",
+    "category": "自习室",
+    "latitude": 31.2197,
+    "longitude": 121.417,
+    "address": "上海市长宁区中山公园商圈",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "自习室",
+      "付费座位",
+      "安静学习"
+    ],
+    "description": "中山公园周边适合阅读和备考的自习空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  },
+  {
+    "_id": "place_pvsg2c",
+    "name": "静安寺自习室",
+    "category": "自习室",
+    "latitude": 31.223,
+    "longitude": 121.4456,
+    "address": "上海市静安区静安寺商圈",
+    "hours": "以现场公示为准",
+    "phone": "",
+    "tags": [
+      "自习室",
+      "付费座位",
+      "备考"
+    ],
+    "description": "静安寺周边适合短时和长时学习的自习空间",
+    "source": "starter",
+    "updatedAt": "2026-06-19"
+  }
+]

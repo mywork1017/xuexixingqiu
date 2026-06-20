@@ -1,0 +1,17 @@
+<view class="page favorites-page">
+  <view class="place-list" wx:if="{{favoritePlaces.length}}">
+    <block wx:for="{{favoritePlaces}}" wx:key="id">
+      <view class="place-item" data-id="{{item.id}}" bindtap="goToDetail">
+        <view class="item-main">
+          <view class="item-kicker">{{item.category}}</view>
+          <view class="item-name">{{item.name}}</view>
+          <view class="item-address">{{item.address}}</view>
+          <view class="item-hours" wx:if="{{item.hours}}">{{item.hours}}</view>
+        </view>
+        <view class="item-arrow">›</view>
+      </view>
+    </block>
+  </view>
+
+  <view class="empty" wx:else>暂无收藏</view>
+</view>

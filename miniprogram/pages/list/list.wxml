@@ -1,0 +1,33 @@
+<view class="page list-page">
+  <scroll-view class="category-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+    <view class="category-row">
+      <block wx:for="{{categories}}" wx:key="*this">
+        <button
+          class="category-chip {{activeCategory === item ? 'active' : ''}}"
+          data-category="{{item}}"
+          bindtap="selectCategory"
+        >
+          {{item}}
+        </button>
+      </block>
+    </view>
+  </scroll-view>
+
+  <view class="count-row">{{filteredPlaces.length}} 个地点</view>
+
+  <view class="place-list" wx:if="{{filteredPlaces.length}}">
+    <block wx:for="{{filteredPlaces}}" wx:key="id">
+      <view class="place-item" data-id="{{item.id}}" bindtap="goToDetail">
+        <view class="item-main">
+          <view class="item-kicker">{{item.category}}</view>
+          <view class="item-name">{{item.name}}</view>
+          <view class="item-address">{{item.address}}</view>
+          <view class="item-hours" wx:if="{{item.hours}}">{{item.hours}}</view>
+        </view>
+        <view class="item-arrow">›</view>
+      </view>
+    </block>
+  </view>
+
+  <view class="empty" wx:else></view>
+</view>
