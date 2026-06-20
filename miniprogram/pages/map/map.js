@@ -1,25 +1,33 @@
 const {
   CATEGORY_OPTIONS,
+  CATEGORY_FILTER_OPTIONS,
   CATEGORY_META,
+  getActiveCategoriesForFilter,
   getDisplayPlaces,
   normalizePlace,
   placesToMarkers
 } = require('../../utils/place-utils');
 const { SAMPLE_PLACES } = require('../../utils/sample-places');
+const { getLocalFavoriteIds, loadFavoriteIds, toggleFavoriteId } = require('../../utils/favorite-store');
 
-const FAVORITES_KEY = 'favoritePlaceIds';
 const SELECTED_POINT_VERTICAL_OFFSET_RATIO = 0.18;
+const FEATURED_PLACE_NAME = '思南书局';
 
-function getStoredFavoriteIds() {
-  const ids = wx.getStorageSync(FAVORITES_KEY);
-  return Array.isArray(ids) ? ids : [];
-}
+function createCategoryTabs(activeFilter) {
+  const chipWidths = {
+    全部: 92,
+    图书馆: 132,
+    书店: 116,
+    自习室: 132,
+    党群服务中心: 190,
+    社区食堂: 164
+  };
 
-function createCategoryTabs(activeCategories) {
-  return CATEGORY_OPTIONS.map((category) => ({
+  return CATEGORY_FILTER_OPTIONS.map((category) => ({
     name: category,
-    color: CATEGORY_META[category].color,
-    active: activeCategories.indexOf(category) >= 0
+    color: category === '全部' ? '#d2a66b' : CATEGORY_META[category].color,
+    width: chipWidths[category] || 132,
+    active: activeFilter === category
   }));
 }
 
@@ -34,12 +42,33 @@ function getMarkerCenterForUpperDisplay(place, bounds) {
   };
 }
 
+function getFeaturedPlace(places) {
+  return places.find((place) => place.name === FEATURED_PLACE_NAME) || places[0] || null;
+}
+
+function withDisplayMeta(place) {
+  if (!place) {
+    return null;
+  }
+  const meta = CATEGORY_META[place.category] || CATEGORY_META['图书馆'];
+  const displayHours = place.name === '思南书局' ? '10:00-21:00　营业中' : (place.hours || '以现场公示为准');
+
+  return {
+    ...place,
+    categoryColor: meta.color,
+    categoryShortName: meta.shortName,
+    displayHours
+  };
+}
+
 Page({
   data: {
     latitude: 31.2304,
     longitude: 121.4737,
     scale: 11,
-    categoryTabs: createCategoryTabs(CATEGORY_OPTIONS),
+    navMetrics: getApp().getNavMetrics(),
+    categoryTabs: createCategoryTabs('全部'),
+    activeFilter: '全部',
     activeCategories: CATEGORY_OPTIONS,
     places: [],
     displayPlaces: [],
@@ -56,11 +85,23 @@ Page({
   },
 
   onShow() {
-    const favoritePlaceIds = getStoredFavoriteIds();
+    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+      this.getTabBar().setData({ selected: 0 });
+    }
+
+    const favoritePlaceIds = getLocalFavoriteIds();
     this.setData({
       favoritePlaceIds,
       selectedPlace: this.withFavoriteState(this.data.selectedPlace, favoritePlaceIds)
     });
+
+    loadFavoriteIds().then((syncedIds) => {
+      this.setData({
+        favoritePlaceIds: syncedIds,
+        selectedPlace: this.withFavoriteState(this.data.selectedPlace, syncedIds)
+      });
+    });
+
     if (!this.data.places.length) {
       this.refreshFromCache();
     }
@@ -100,11 +141,14 @@ Page({
 
   applyPlaces(rawPlaces, loadError) {
     const places = rawPlaces.map(normalizePlace);
+    const selectedPlace = getFeaturedPlace(places);
 
     wx.setStorageSync('places', places);
     this.setData({
       places,
-      selectedPlace: null,
+      latitude: selectedPlace ? selectedPlace.latitude : this.data.latitude,
+      longitude: selectedPlace ? selectedPlace.longitude : this.data.longitude,
+      selectedPlace: this.withFavoriteState(selectedPlace),
       loadError: loadError || ''
     }, () => {
       this.updateVisibleMarkers();
@@ -117,25 +161,19 @@ Page({
     }
     const ids = favoritePlaceIds || this.data.favoritePlaceIds;
     return {
-      ...place,
+      ...withDisplayMeta(place),
       isFavorite: ids.indexOf(place.id) >= 0
     };
   },
 
   toggleCategory(event) {
     const category = event.currentTarget.dataset.category;
-    const activeCategories = this.data.activeCategories.slice();
-    const existingIndex = activeCategories.indexOf(category);
-
-    if (existingIndex >= 0) {
-      activeCategories.splice(existingIndex, 1);
-    } else {
-      activeCategories.push(category);
-    }
+    const activeCategories = getActiveCategoriesForFilter(category);
 
     this.setData({
+      activeFilter: category,
       activeCategories,
-      categoryTabs: createCategoryTabs(activeCategories),
+      categoryTabs: createCategoryTabs(category),
       selectedPlace: null
     }, () => {
       this.updateVisibleMarkers();
@@ -279,19 +317,11 @@ Page({
       return;
     }
 
-    const favoritePlaceIds = this.data.favoritePlaceIds.slice();
-    const existingIndex = favoritePlaceIds.indexOf(placeId);
-
-    if (existingIndex >= 0) {
-      favoritePlaceIds.splice(existingIndex, 1);
-    } else {
-      favoritePlaceIds.push(placeId);
-    }
-
-    wx.setStorageSync(FAVORITES_KEY, favoritePlaceIds);
-    this.setData({
-      favoritePlaceIds,
-      selectedPlace: this.withFavoriteState(this.data.selectedPlace, favoritePlaceIds)
+    toggleFavoriteId(placeId).then(({ favoriteIds }) => {
+      this.setData({
+        favoritePlaceIds: favoriteIds,
+        selectedPlace: this.withFavoriteState(this.data.selectedPlace, favoriteIds)
+      });
     });
   },
 

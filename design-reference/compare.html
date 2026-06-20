@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PRD 目标 HTML 与当前小程序截图对比</title>
+    <link rel="stylesheet" href="./reference.css" />
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+      }
+
+      .compare-frame {
+        background: #050505;
+        border: 0;
+        border-radius: 30px;
+        height: 988px;
+        overflow: hidden;
+        width: 430px;
+      }
+
+      .compare-card img {
+        background: #050505;
+        border-radius: 30px;
+        display: block;
+        width: 430px;
+      }
+
+      .compare-note {
+        color: #b8ad9d;
+        font-size: 14px;
+        line-height: 1.7;
+        margin: 0 auto 28px;
+        max-width: 900px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="compare-shell">
+      <div>
+        <h1 class="compare-heading">PRD 目标 HTML 与当前小程序截图对比</h1>
+        <p class="compare-note">左侧是按 PRD 目标效果图重建的 HTML/CSS 基准；右侧是微信开发者工具当前截图。地图底图细节暂按视觉占位处理，UI 层用这里作为后续修改准星。</p>
+      </div>
+
+      <section class="compare-grid">
+        <h2 class="compare-heading">地图页</h2>
+        <article class="compare-card">
+          <h2>PRD 目标 HTML</h2>
+          <iframe class="compare-frame" src="./map.html" title="地图页 PRD 目标 HTML"></iframe>
+        </article>
+        <article class="compare-card">
+          <h2>当前小程序截图</h2>
+          <img src="./assets/current-map.png" alt="地图页当前小程序截图" />
+        </article>
+      </section>
+
+      <section class="compare-grid">
+        <h2 class="compare-heading">详情页</h2>
+        <article class="compare-card">
+          <h2>PRD 目标 HTML</h2>
+          <iframe class="compare-frame" src="./detail.html" title="详情页 PRD 目标 HTML"></iframe>
+        </article>
+        <article class="compare-card">
+          <h2>当前小程序截图</h2>
+          <img src="./assets/current-detail.png" alt="详情页当前小程序截图" />
+        </article>
+      </section>
+
+      <section class="compare-grid">
+        <h2 class="compare-heading">我的页</h2>
+        <article class="compare-card">
+          <h2>PRD 目标 HTML</h2>
+          <iframe class="compare-frame" src="./mine.html" title="我的页 PRD 目标 HTML"></iframe>
+        </article>
+        <article class="compare-card">
+          <h2>当前小程序截图</h2>
+          <img src="./assets/current-mine.png" alt="我的页当前小程序截图" />
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

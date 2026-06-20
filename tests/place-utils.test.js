@@ -5,9 +5,11 @@ const path = require('node:path');
 
 const {
   CATEGORY_OPTIONS,
+  CATEGORY_FILTER_OPTIONS,
   createPlaceImportId,
   filterPlaces,
   filterPlacesByCategories,
+  getActiveCategoriesForFilter,
   getDisplayPlaces,
   getNearbyPlaces,
   placesToImportDocuments,
@@ -19,11 +21,28 @@ const {
 test('CATEGORY_OPTIONS contains the five supported place categories', () => {
   assert.deepEqual(CATEGORY_OPTIONS, [
     '图书馆',
-    '党群服务中心',
-    '社区食堂',
     '书店',
-    '自习室'
+    '自习室',
+    '党群服务中心',
+    '社区食堂'
   ]);
+});
+
+test('CATEGORY_FILTER_OPTIONS starts with 全部 before place categories', () => {
+  assert.deepEqual(CATEGORY_FILTER_OPTIONS, [
+    '全部',
+    '图书馆',
+    '书店',
+    '自习室',
+    '党群服务中心',
+    '社区食堂'
+  ]);
+});
+
+test('getActiveCategoriesForFilter maps 全部 and single category choices', () => {
+  assert.deepEqual(getActiveCategoriesForFilter('全部'), CATEGORY_OPTIONS);
+  assert.deepEqual(getActiveCategoriesForFilter('书店'), ['书店']);
+  assert.deepEqual(getActiveCategoriesForFilter('不存在'), CATEGORY_OPTIONS);
 });
 
 test('filterPlaces returns all places for 全部 and only matching places for a category', () => {
@@ -112,8 +131,9 @@ test('placesToMarkers makes the selected place visibly larger', () => {
   ], { selectedPlaceId: 'p2' });
 
   assert.equal(markers[0].width, 18);
-  assert.equal(markers[1].width, 28);
-  assert.equal(markers[1].height, 28);
+  assert.equal(markers[1].iconPath, '/assets/markers/library-selected.png');
+  assert.equal(markers[1].width, 32);
+  assert.equal(markers[1].height, 32);
   assert.equal(markers[1].zIndex, 10);
 });
 

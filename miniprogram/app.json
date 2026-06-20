@@ -7,9 +7,10 @@
   ],
   "window": {
     "navigationBarTitleText": "上海学习地图",
-    "navigationBarBackgroundColor": "#f7f8f4",
-    "navigationBarTextStyle": "black",
-    "backgroundColor": "#f7f8f4"
+    "navigationBarBackgroundColor": "#071615",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#071615",
+    "navigationStyle": "custom"
   },
   "permission": {
     "scope.userLocation": {
@@ -20,10 +21,11 @@
     "getLocation"
   ],
   "tabBar": {
-    "color": "#59636e",
-    "selectedColor": "#1f6feb",
-    "backgroundColor": "#ffffff",
-    "borderStyle": "white",
+    "custom": true,
+    "color": "#8ea49b",
+    "selectedColor": "#d2a66b",
+    "backgroundColor": "#071615",
+    "borderStyle": "black",
     "list": [
       {
         "pagePath": "pages/map/map",
@@ -33,7 +35,7 @@
       },
       {
         "pagePath": "pages/favorites/favorites",
-        "text": "收藏",
+        "text": "我的",
         "iconPath": "assets/tabs/favorite.png",
         "selectedIconPath": "assets/tabs/favorite-active.png"
       }

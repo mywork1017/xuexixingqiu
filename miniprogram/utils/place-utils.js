@@ -1,17 +1,19 @@
 const CATEGORY_OPTIONS = [
   '图书馆',
-  '党群服务中心',
-  '社区食堂',
   '书店',
-  '自习室'
+  '自习室',
+  '党群服务中心',
+  '社区食堂'
 ];
 
+const CATEGORY_FILTER_OPTIONS = ['全部', ...CATEGORY_OPTIONS];
+
 const CATEGORY_META = {
-  图书馆: { color: '#1f6feb', shortName: '图', iconPath: '/assets/markers/library-dot.png' },
-  党群服务中心: { color: '#d1242f', shortName: '党', iconPath: '/assets/markers/service-dot.png' },
-  社区食堂: { color: '#bf8700', shortName: '食', iconPath: '/assets/markers/canteen-dot.png' },
-  书店: { color: '#8250df', shortName: '书', iconPath: '/assets/markers/bookstore-dot.png' },
-  自习室: { color: '#1a7f37', shortName: '习', iconPath: '/assets/markers/study-dot.png' }
+  图书馆: { color: '#7f9661', shortName: '图', iconPath: '/assets/markers/library-dot.png', selectedIconPath: '/assets/markers/library-selected.png' },
+  书店: { color: '#b8894d', shortName: '书', iconPath: '/assets/markers/bookstore-dot.png', selectedIconPath: '/assets/markers/bookstore-selected.png' },
+  自习室: { color: '#7471b8', shortName: '习', iconPath: '/assets/markers/study-dot.png', selectedIconPath: '/assets/markers/study-selected.png' },
+  党群服务中心: { color: '#b74b42', shortName: '党', iconPath: '/assets/markers/service-dot.png', selectedIconPath: '/assets/markers/service-selected.png' },
+  社区食堂: { color: '#a8b85a', shortName: '食', iconPath: '/assets/markers/canteen-dot.png', selectedIconPath: '/assets/markers/canteen-selected.png' }
 };
 
 const LOW_SCALE_THRESHOLD = 11;
@@ -84,6 +86,14 @@ function filterPlacesByCategories(places, categories) {
 
   const selectedCategories = new Set(categories);
   return places.filter((place) => selectedCategories.has(place.category));
+}
+
+function getActiveCategoriesForFilter(filterName) {
+  if (!filterName || filterName === '全部' || CATEGORY_OPTIONS.indexOf(filterName) < 0) {
+    return CATEGORY_OPTIONS.slice();
+  }
+
+  return [filterName];
 }
 
 function isPlaceInBounds(place, bounds) {
@@ -162,9 +172,9 @@ function placesToMarkers(places, options = {}) {
         latitude: place.latitude,
         longitude: place.longitude,
         title: place.name,
-        iconPath: meta.iconPath,
-        width: selected ? 28 : 18,
-        height: selected ? 28 : 18,
+        iconPath: selected ? meta.selectedIconPath : meta.iconPath,
+        width: selected ? 32 : 18,
+        height: selected ? 32 : 18,
         anchor: { x: 0.5, y: 0.5 },
         zIndex: selected ? 10 : 1
       };
@@ -242,11 +252,13 @@ function placesToImportDocuments(places) {
 
 module.exports = {
   CATEGORY_OPTIONS,
+  CATEGORY_FILTER_OPTIONS,
   CATEGORY_META,
   LOW_SCALE_THRESHOLD,
   createPlaceImportId,
   filterPlaces,
   filterPlacesByCategories,
+  getActiveCategoriesForFilter,
   getDisplayPlaces,
   getDistanceKm,
   getNearbyPlaces,

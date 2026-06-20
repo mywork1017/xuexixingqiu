@@ -12,12 +12,22 @@
     bindregionchange="onRegionChange"
   />
 
-  <view class="top-panel">
+  <view class="map-scrim"></view>
+
+  <view
+    class="custom-nav"
+    style="padding-top: {{navMetrics.statusBarHeight}}px; min-height: {{navMetrics.navBarHeight}}px;"
+  >
+    <view class="nav-title">上海学习地图</view>
+  </view>
+
+  <view class="top-panel" style="top: {{navMetrics.topOffset}}px;">
     <scroll-view class="category-scroll" scroll-x enhanced show-scrollbar="{{false}}">
       <view class="category-row">
         <block wx:for="{{categoryTabs}}" wx:key="name">
           <button
             class="category-chip {{item.active ? 'active' : ''}}"
+            style="width: {{item.width}}rpx;"
             data-category="{{item.name}}"
             bindtap="toggleCategory"
           >
@@ -29,6 +39,8 @@
     </scroll-view>
   </view>
 
+  <view class="load-tip" wx:if="{{loadError}}">{{loadError}}</view>
+
   <view class="map-actions">
     <button class="location-button" aria-label="定位" bindtap="moveToUserLocation">
       <text class="location-glyph">◎</text>
@@ -36,25 +48,27 @@
   </view>
 
   <view class="bottom-sheet" wx:if="{{selectedPlace}}">
-    <view class="sheet-topline">
-      <view class="sheet-kicker">{{selectedPlace.category}}</view>
-      <button class="favorite-button {{selectedPlace.isFavorite ? 'active' : ''}}" bindtap="toggleFavorite">
-        {{selectedPlace.isFavorite ? '已收藏' : '收藏'}}
+    <view class="sheet-main">
+      <view class="sheet-icon" style="background: {{selectedPlace.categoryColor}};">{{selectedPlace.categoryShortName}}</view>
+      <view class="sheet-content">
+        <view class="sheet-title">{{selectedPlace.name}}</view>
+        <view class="sheet-address">⌖ {{selectedPlace.address || '地址待补充'}}</view>
+        <view class="sheet-hours">◴ {{selectedPlace.displayHours}}</view>
+        <view class="sheet-tags" wx:if="{{selectedPlace.tags.length}}">
+          <block wx:for="{{selectedPlace.tags}}" wx:key="*this">
+            <text class="tag">{{item}}</text>
+          </block>
+        </view>
+      </view>
+      <view class="sheet-distance" wx:if="{{selectedPlace.distanceText}}">{{selectedPlace.distanceText}}</view>
+    </view>
+    <view class="sheet-divider"></view>
+    <view class="sheet-actions">
+      <button class="primary-button sheet-action" bindtap="openLocation"><text>➤</text>导航</button>
+      <button class="secondary-button sheet-action" bindtap="goToDetail"><text>▤</text>详情</button>
+      <button class="secondary-button sheet-action {{selectedPlace.isFavorite ? 'active' : ''}}" bindtap="toggleFavorite">
+        <text>☆</text>{{selectedPlace.isFavorite ? '已收藏' : '收藏'}}
       </button>
     </view>
-    <view class="sheet-title">{{selectedPlace.name}}</view>
-    <view class="sheet-address">{{selectedPlace.address || '地址待补充'}}</view>
-    <view class="sheet-meta" wx:if="{{selectedPlace.hours}}">开放时间：{{selectedPlace.hours}}</view>
-    <view class="sheet-summary" wx:if="{{selectedPlace.description}}">{{selectedPlace.description}}</view>
-    <view class="sheet-tags">
-      <block wx:for="{{selectedPlace.tags}}" wx:key="*this">
-        <text class="tag">{{item}}</text>
-      </block>
-    </view>
-    <view class="sheet-actions">
-      <button class="primary-button sheet-action" bindtap="openLocation">导航</button>
-      <button class="secondary-button sheet-action" bindtap="goToDetail">详情</button>
-    </view>
   </view>
-
 </view>

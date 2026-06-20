@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>我的页 PRD 目标 HTML</title>
+    <link rel="stylesheet" href="./reference.css" />
+    <style>
+      .mine-phone {
+        background:
+          linear-gradient(180deg, rgba(5, 12, 13, 0.36), #081111 42%, #070e10 100%),
+          url("./assets/mock-mine-bg.png") top center / 100% 270px no-repeat,
+          #071211;
+      }
+
+      .mine-title {
+        left: 0;
+        position: absolute;
+        right: 0;
+        top: 58px;
+      }
+
+      .profile {
+        align-items: center;
+        display: grid;
+        grid-template-columns: 92px 1fr 70px;
+        left: 22px;
+        position: absolute;
+        right: 22px;
+        top: 166px;
+      }
+
+      .avatar {
+        align-items: center;
+        background: radial-gradient(circle at 45% 30%, rgba(235, 205, 151, 0.18), transparent 35%), #15281c;
+        border: 1px solid var(--gold);
+        border-radius: 50%;
+        box-shadow: 0 0 28px rgba(232, 196, 125, 0.15);
+        color: #efdfc0;
+        display: flex;
+        font-size: 50px;
+        height: 82px;
+        justify-content: center;
+        width: 82px;
+      }
+
+      .profile-name {
+        color: #f4ead8;
+        font-size: 30px;
+        font-weight: 500;
+        letter-spacing: 1px;
+        margin: 0 0 10px;
+      }
+
+      .login-pill {
+        align-items: center;
+        background: rgba(238, 230, 207, 0.18);
+        border-radius: 16px;
+        color: #dfd4c3;
+        display: inline-flex;
+        font: 16px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+        gap: 8px;
+        height: 30px;
+        padding: 0 14px;
+      }
+
+      .check {
+        align-items: center;
+        background: rgba(244, 236, 218, 0.86);
+        border-radius: 50%;
+        color: #1b241d;
+        display: flex;
+        font-weight: 800;
+        height: 18px;
+        justify-content: center;
+        width: 18px;
+      }
+
+      .setting {
+        align-items: center;
+        color: var(--gold);
+        display: flex;
+        flex-direction: column;
+        font: 16px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+        gap: 7px;
+        justify-self: end;
+      }
+
+      .gear {
+        align-items: center;
+        border: 2px solid var(--gold);
+        clip-path: polygon(20% 0, 80% 0, 100% 50%, 80% 100%, 20% 100%, 0 50%);
+        display: flex;
+        height: 40px;
+        justify-content: center;
+        width: 40px;
+      }
+
+      .gear::after {
+        border: 4px solid var(--gold);
+        border-radius: 50%;
+        content: "";
+        height: 10px;
+        width: 10px;
+      }
+
+      .fav-head {
+        align-items: center;
+        color: var(--gold);
+        display: flex;
+        font: 500 24px Georgia, "Songti SC", serif;
+        justify-content: space-between;
+        left: 22px;
+        position: absolute;
+        right: 22px;
+        top: 286px;
+      }
+
+      .fav-head strong {
+        align-items: center;
+        display: flex;
+        font-weight: 500;
+        gap: 12px;
+      }
+
+      .fav-head span {
+        font: 17px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+      }
+
+      .favorite-list {
+        left: 22px;
+        position: absolute;
+        right: 22px;
+        top: 352px;
+      }
+
+      .favorite-item {
+        align-items: center;
+        border-top: 1px solid rgba(232, 196, 125, 0.18);
+        display: grid;
+        gap: 18px;
+        grid-template-columns: 76px 1fr 18px;
+        min-height: 122px;
+        padding: 24px 0;
+      }
+
+      .favorite-item:first-child {
+        border-top-color: rgba(232, 196, 125, 0.3);
+      }
+
+      .round-icon {
+        align-items: center;
+        background: radial-gradient(circle at 50% 42%, rgba(232, 196, 125, 0.16), transparent 38%), #13281c;
+        border: 1px solid var(--gold);
+        border-radius: 50%;
+        color: #f0dcad;
+        display: flex;
+        font-size: 31px;
+        height: 64px;
+        justify-content: center;
+        width: 64px;
+      }
+
+      .favorite-text h2 {
+        align-items: center;
+        color: #f4ead8;
+        display: flex;
+        font-size: 26px;
+        font-weight: 500;
+        gap: 12px;
+        margin: 0 0 10px;
+      }
+
+      .mini-tag {
+        background: rgba(90, 125, 75, 0.28);
+        border: 1px solid rgba(128, 161, 96, 0.36);
+        border-radius: 11px;
+        color: #d8e1c3;
+        font: 14px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+        padding: 3px 10px;
+      }
+
+      .favorite-text p {
+        color: #bdb2a2;
+        font: 17px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+        margin: 8px 0 0;
+      }
+
+      .arrow {
+        color: var(--gold);
+        font-size: 38px;
+      }
+
+      .mine-tabbar .tab.active::after {
+        background: var(--gold);
+        border-radius: 4px;
+        bottom: 10px;
+        content: "";
+        height: 3px;
+        position: absolute;
+        width: 34px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="stage">
+      <p class="label">我的页 PRD 目标 HTML</p>
+      <section class="phone mine-phone">
+        <div class="status"><span>9:41</span><span class="signal">▮▮▮  WiFi  ▭</span></div>
+        <div class="capsule"><span>•••</span><span class="capsule-ring"></span></div>
+        <h1 class="mock-title mine-title">我的</h1>
+
+        <section class="profile">
+          <div class="avatar">●</div>
+          <div>
+            <h2 class="profile-name">微信用户</h2>
+            <div class="login-pill"><span class="check">✓</span>已登录 微信</div>
+          </div>
+          <div class="setting"><span class="gear"></span><span>设置</span></div>
+        </section>
+
+        <section class="fav-head">
+          <strong><span style="font-size:32px;">☆</span>我的收藏</strong>
+          <span>3 个地点</span>
+        </section>
+
+        <section class="favorite-list">
+          <article class="favorite-item">
+            <div class="round-icon">▮</div>
+            <div class="favorite-text">
+              <h2>上海图书馆东馆 <span class="mini-tag">图书馆</span></h2>
+              <p>● 浦东新区合欢路300号</p>
+              <p>◴ 9:00-20:30　全年无休</p>
+            </div>
+            <div class="arrow">›</div>
+          </article>
+          <article class="favorite-item">
+            <div class="round-icon">▱</div>
+            <div class="favorite-text">
+              <h2>徐家汇书院 <span class="mini-tag">书店</span></h2>
+              <p>● 徐汇区漕溪北路158号</p>
+              <p>◴ 10:00-22:00　全年无休</p>
+            </div>
+            <div class="arrow">›</div>
+          </article>
+          <article class="favorite-item">
+            <div class="round-icon">▣</div>
+            <div class="favorite-text">
+              <h2>思南书局 <span class="mini-tag">书店</span></h2>
+              <p>● 黄浦区复兴中路517号</p>
+              <p>◴ 10:00-21:00　全年无休</p>
+            </div>
+            <div class="arrow">›</div>
+          </article>
+        </section>
+
+        <nav class="tabbar mine-tabbar">
+          <div class="tab"><span class="tab-mark">♧</span><span>地图</span></div>
+          <div class="tab active"><span class="tab-mark">●</span><span>我的</span></div>
+        </nav>
+      </section>
+    </main>
+  </body>
+</html>

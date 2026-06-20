@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>详情页 PRD 目标 HTML</title>
+    <link rel="stylesheet" href="./reference.css" />
+    <style>
+      .detail-phone {
+        background:
+          radial-gradient(circle at 70% 8%, rgba(215, 168, 84, 0.08), transparent 28%),
+          linear-gradient(180deg, #071012, #081111 55%, #071012);
+        overflow-y: auto;
+      }
+
+      .detail-top {
+        background: rgba(5, 11, 12, 0.96);
+        height: 88px;
+        left: 0;
+        position: sticky;
+        right: 0;
+        top: 0;
+        z-index: 15;
+      }
+
+      .detail-title {
+        left: 0;
+        position: absolute;
+        right: 0;
+        top: 55px;
+      }
+
+      .back {
+        color: #f4ead8;
+        font-size: 42px;
+        left: 18px;
+        line-height: 1;
+        position: absolute;
+        top: 44px;
+      }
+
+      .cover {
+        background: url("./assets/mock-detail-cover.png") center / cover no-repeat;
+        height: 132px;
+      }
+
+      .detail-content {
+        padding: 26px 19px 120px;
+      }
+
+      .place-hero {
+        align-items: center;
+        display: grid;
+        gap: 18px;
+        grid-template-columns: 86px 1fr;
+        margin-bottom: 24px;
+      }
+
+      .hero-icon {
+        align-items: center;
+        background: radial-gradient(circle at 50% 42%, rgba(232, 196, 125, 0.16), transparent 42%), #13281c;
+        border: 1px solid var(--gold);
+        border-radius: 50%;
+        color: #f0dcad;
+        display: flex;
+        font-size: 40px;
+        height: 82px;
+        justify-content: center;
+        width: 82px;
+      }
+
+      .place-hero h1 {
+        color: #f4ead8;
+        font-size: 36px;
+        font-weight: 500;
+        letter-spacing: 1px;
+        margin: 0 0 10px;
+      }
+
+      .place-hero p,
+      .line {
+        color: #bcae99;
+        font: 18px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+        margin: 0;
+      }
+
+      .top-actions {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: 1fr 1fr;
+        margin-bottom: 24px;
+      }
+
+      .outline-action {
+        align-items: center;
+        background: linear-gradient(135deg, rgba(20, 57, 36, 0.82), rgba(13, 32, 24, 0.88));
+        border: 1px solid rgba(199, 151, 64, 0.72);
+        border-radius: 10px;
+        color: var(--gold);
+        display: flex;
+        font: 600 21px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+        gap: 11px;
+        height: 42px;
+        justify-content: center;
+      }
+
+      .section {
+        border-bottom: 1px solid rgba(232, 196, 125, 0.2);
+        padding: 0 0 22px;
+        margin-bottom: 22px;
+      }
+
+      .section h2 {
+        color: var(--gold);
+        font: 500 22px Georgia, "Songti SC", serif;
+        letter-spacing: 1px;
+        margin: 0 0 14px;
+      }
+
+      .mini-map {
+        background:
+          linear-gradient(rgba(8, 16, 17, 0.12), rgba(8, 16, 17, 0.12)),
+          url("./assets/mock-detail-map.png") center / cover no-repeat;
+        border: 1px solid rgba(232, 196, 125, 0.32);
+        border-radius: 9px;
+        height: 96px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .mini-pin {
+        align-items: center;
+        background: #bd8f35;
+        border: 1px solid rgba(255, 230, 175, 0.74);
+        border-radius: 50% 50% 50% 5px;
+        color: #fff2d7;
+        display: flex;
+        font-size: 18px;
+        height: 42px;
+        justify-content: center;
+        left: 190px;
+        position: absolute;
+        top: 28px;
+        transform: rotate(-45deg);
+        width: 42px;
+      }
+
+      .mini-pin span {
+        transform: rotate(45deg);
+      }
+
+      .open-line {
+        align-items: center;
+        color: #bcae99;
+        display: flex;
+        font: 19px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+        gap: 14px;
+      }
+
+      .text-body {
+        color: #cbbba4;
+        font: 18px/1.65 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+        margin: 0;
+      }
+
+      .chip-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .gold-chip {
+        border: 1px solid var(--gold-2);
+        border-radius: 15px;
+        color: var(--gold);
+        font: 16px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+        height: 28px;
+        padding: 2px 14px;
+      }
+
+      .filters.detail-filters {
+        padding: 0;
+        margin-bottom: 14px;
+      }
+
+      .nearby-item {
+        align-items: center;
+        border-top: 1px solid rgba(232, 196, 125, 0.14);
+        display: grid;
+        gap: 14px;
+        grid-template-columns: 58px 1fr 70px 14px;
+        min-height: 70px;
+        padding: 13px 0;
+      }
+
+      .nearby-icon {
+        align-items: center;
+        background: #13281c;
+        border: 1px solid var(--gold-2);
+        border-radius: 50%;
+        color: #f0dcad;
+        display: flex;
+        font-size: 24px;
+        height: 52px;
+        justify-content: center;
+        width: 52px;
+      }
+
+      .nearby-text strong {
+        color: #f4ead8;
+        display: block;
+        font: 500 22px Georgia, "Songti SC", serif;
+        margin-bottom: 4px;
+      }
+
+      .nearby-text span,
+      .nearby-distance {
+        color: #bcae99;
+        font: 16px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="stage">
+      <p class="label">详情页 PRD 目标 HTML</p>
+      <section class="phone detail-phone">
+        <div class="detail-top">
+          <div class="status"><span>9:41</span><span class="signal">▮▮▮  WiFi  ▭</span></div>
+          <div class="back">‹</div>
+          <h1 class="mock-title detail-title">地点详情</h1>
+          <div class="capsule"><span>•••</span><span class="capsule-ring"></span></div>
+        </div>
+
+        <div class="cover"></div>
+
+        <div class="detail-content">
+          <section class="place-hero">
+            <div class="hero-icon">▣</div>
+            <div>
+              <h1>思南书局</h1>
+              <p>● 黄浦区复兴中路517号</p>
+            </div>
+          </section>
+
+          <section class="top-actions">
+            <div class="outline-action">➤ 导航</div>
+            <div class="outline-action">☆ 收藏</div>
+          </section>
+
+          <section class="section">
+            <h2>位置</h2>
+            <div class="mini-map"><div class="mini-pin"><span>▣</span></div></div>
+          </section>
+
+          <section class="section">
+            <h2>开放时间</h2>
+            <div class="open-line">◴ <span>10:00-21:00　全年无休</span></div>
+          </section>
+
+          <section class="section">
+            <h2>简介</h2>
+            <p class="text-body">坐落在思南公馆内的独立书店，藏书丰富，适合阅读与慢慢逛书。</p>
+          </section>
+
+          <section class="section">
+            <h2>标签</h2>
+            <div class="chip-row">
+              <span class="gold-chip">阅读</span>
+              <span class="gold-chip">人文</span>
+              <span class="gold-chip">书店</span>
+            </div>
+          </section>
+
+          <section>
+            <h2 style="color:var(--gold);font:500 23px Georgia,'Songti SC',serif;margin:0 0 16px;">周边 2 公里</h2>
+            <div class="filters detail-filters">
+              <div class="filter active">全部</div>
+              <div class="filter"><span class="dot" style="background:#4d9e58"></span>图书馆</div>
+              <div class="filter"><span class="dot" style="background:#d5a74e"></span>书店</div>
+              <div class="filter"><span class="dot" style="background:#536ed6"></span>自习室</div>
+              <div class="filter"><span class="dot" style="background:#9aaa55"></span>社区食堂</div>
+            </div>
+
+            <article class="nearby-item">
+              <div class="nearby-icon">▱</div>
+              <div class="nearby-text"><strong>徐家汇书院</strong><span>徐汇区漕溪北路158号</span></div>
+              <div class="nearby-distance">1.2 公里</div>
+              <div class="arrow">›</div>
+            </article>
+            <article class="nearby-item">
+              <div class="nearby-icon">▮</div>
+              <div class="nearby-text"><strong>上海图书馆东馆</strong><span>浦东新区合欢路300号</span></div>
+              <div class="nearby-distance">3.8 公里</div>
+              <div class="arrow">›</div>
+            </article>
+            <article class="nearby-item">
+              <div class="nearby-icon">☕</div>
+              <div class="nearby-text"><strong>静安社区食堂</strong><span>静安区胶州路343号</span></div>
+              <div class="nearby-distance">1.6 公里</div>
+              <div class="arrow">›</div>
+            </article>
+          </section>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

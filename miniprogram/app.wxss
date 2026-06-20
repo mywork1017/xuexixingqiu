@@ -1,26 +1,29 @@
 page {
-  background: #f7f8f4;
-  color: #1f2328;
+  background: #071112;
+  color: #f4ead8;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
   font-size: 28rpx;
 }
 
 button {
+  box-sizing: border-box;
   font: inherit;
+}
+
+button::after {
+  border: 0;
 }
 
 .page {
   min-height: 100vh;
-  background: #f7f8f4;
 }
 
 .icon-button {
   align-items: center;
-  background: #ffffff;
-  border: 1rpx solid rgba(31, 35, 40, 0.12);
-  border-radius: 16rpx;
-  box-shadow: 0 8rpx 24rpx rgba(31, 35, 40, 0.08);
-  color: #1f2328;
+  background: #fff8ea;
+  border: 1rpx solid rgba(184, 137, 77, 0.18);
+  border-radius: 14rpx;
+  color: #102724;
   display: flex;
   height: 80rpx;
   justify-content: center;
@@ -30,25 +33,28 @@ button {
 
 .primary-button {
   align-items: center;
-  background: #1f6feb;
-  border-radius: 16rpx;
-  color: #ffffff;
+  background: linear-gradient(135deg, #0b351f, #122a1b);
+  border: 1rpx solid rgba(232, 196, 125, 0.44);
+  border-radius: 14rpx;
+  color: #fff0d4;
   display: flex;
-  font-weight: 600;
+  font-weight: 700;
   justify-content: center;
-  min-height: 88rpx;
-  padding: 0 28rpx;
+  line-height: 1.2;
+  min-height: 84rpx;
+  padding: 0 24rpx;
 }
 
 .secondary-button {
   align-items: center;
-  background: #ffffff;
-  border: 1rpx solid rgba(31, 35, 40, 0.12);
-  border-radius: 16rpx;
-  color: #1f2328;
+  background: rgba(210, 195, 170, 0.42);
+  border: 1rpx solid rgba(184, 137, 77, 0.28);
+  border-radius: 14rpx;
+  color: #2f3029;
   display: flex;
-  font-weight: 600;
+  font-weight: 700;
   justify-content: center;
-  min-height: 88rpx;
-  padding: 0 28rpx;
+  line-height: 1.2;
+  min-height: 84rpx;
+  padding: 0 24rpx;
 }
