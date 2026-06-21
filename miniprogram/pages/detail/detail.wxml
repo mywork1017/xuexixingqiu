@@ -35,6 +35,8 @@
         longitude="{{place.longitude}}"
         scale="16"
         markers="{{mapMarkers}}"
+        subkey="{{mapStyle.subkey}}"
+        layer-style="{{mapStyle.layerStyle}}"
       />
     </view>
 

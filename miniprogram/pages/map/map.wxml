@@ -6,6 +6,8 @@
     longitude="{{longitude}}"
     scale="{{scale}}"
     markers="{{markers}}"
+    subkey="{{mapStyle.subkey}}"
+    layer-style="{{mapStyle.layerStyle}}"
     show-location
     bindtap="onMapTap"
     bindmarkertap="onMarkerTap"

@@ -9,6 +9,7 @@ const {
 } = require('../../utils/place-utils');
 const { SAMPLE_PLACES } = require('../../utils/sample-places');
 const { getLocalFavoriteIds, loadFavoriteIds, toggleFavoriteId } = require('../../utils/favorite-store');
+const { MAP_STYLE_CONFIG } = require('../../config/map-style');
 
 function createCategoryTabs(activeFilter) {
   const chipWidths = {
@@ -51,6 +52,7 @@ Page({
     place: null,
     allPlaces: [],
     mapMarkers: [],
+    mapStyle: MAP_STYLE_CONFIG,
     favoritePlaceIds: [],
     isFavorite: false,
     nearbyFilter: '全部',

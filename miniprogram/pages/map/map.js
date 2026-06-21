@@ -9,6 +9,7 @@ const {
 } = require('../../utils/place-utils');
 const { SAMPLE_PLACES } = require('../../utils/sample-places');
 const { getLocalFavoriteIds, loadFavoriteIds, toggleFavoriteId } = require('../../utils/favorite-store');
+const { MAP_STYLE_CONFIG } = require('../../config/map-style');
 
 const SELECTED_POINT_VERTICAL_OFFSET_RATIO = 0.18;
 const FEATURED_PLACE_NAME = '思南书局';
@@ -66,6 +67,7 @@ Page({
     latitude: 31.2304,
     longitude: 121.4737,
     scale: 11,
+    mapStyle: MAP_STYLE_CONFIG,
     navMetrics: getApp().getNavMetrics(),
     categoryTabs: createCategoryTabs('全部'),
     activeFilter: '全部',
