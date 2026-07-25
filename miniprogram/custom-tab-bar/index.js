@@ -5,14 +5,14 @@ Component({
       {
         pagePath: '/pages/map/map',
         text: '地图',
-        iconPath: '/assets/tabs/map.png',
-        selectedIconPath: '/assets/tabs/map-active.png'
+        iconPath: '/assets/tabs/ditu_tab_ditu_weixuan.png',
+        selectedIconPath: '/assets/tabs/ditu_tab_ditu_xuanzhong.png'
       },
       {
         pagePath: '/pages/favorites/favorites',
         text: '我的',
-        iconPath: '/assets/tabs/favorite.png',
-        selectedIconPath: '/assets/tabs/favorite-active.png'
+        iconPath: '/assets/tabs/wode_tab_wode_weixuan.png',
+        selectedIconPath: '/assets/tabs/wode_tab_wode_xuanzhong.png'
       }
     ]
   },

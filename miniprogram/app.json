@@ -7,9 +7,9 @@
   ],
   "window": {
     "navigationBarTitleText": "上海学习地图",
-    "navigationBarBackgroundColor": "#071615",
-    "navigationBarTextStyle": "white",
-    "backgroundColor": "#071615",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f7f7fa",
     "navigationStyle": "custom"
   },
   "permission": {
@@ -22,22 +22,22 @@
   ],
   "tabBar": {
     "custom": true,
-    "color": "#8ea49b",
-    "selectedColor": "#d2a66b",
-    "backgroundColor": "#071615",
+    "color": "#a0a0a0",
+    "selectedColor": "#7d36ec",
+    "backgroundColor": "#ffffff",
     "borderStyle": "black",
     "list": [
       {
         "pagePath": "pages/map/map",
         "text": "地图",
-        "iconPath": "assets/tabs/map.png",
-        "selectedIconPath": "assets/tabs/map-active.png"
+        "iconPath": "assets/tabs/ditu_tab_ditu_weixuan.png",
+        "selectedIconPath": "assets/tabs/ditu_tab_ditu_xuanzhong.png"
       },
       {
         "pagePath": "pages/favorites/favorites",
         "text": "我的",
-        "iconPath": "assets/tabs/favorite.png",
-        "selectedIconPath": "assets/tabs/favorite-active.png"
+        "iconPath": "assets/tabs/wode_tab_wode_weixuan.png",
+        "selectedIconPath": "assets/tabs/wode_tab_wode_xuanzhong.png"
       }
     ]
   },

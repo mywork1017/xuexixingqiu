@@ -6,26 +6,26 @@
     longitude="{{longitude}}"
     scale="{{scale}}"
     markers="{{markers}}"
+    polygons="{{mapScrimPolygons}}"
     subkey="{{mapStyle.subkey}}"
     layer-style="{{mapStyle.layerStyle}}"
-    show-location
     bindtap="onMapTap"
     bindmarkertap="onMarkerTap"
     bindregionchange="onRegionChange"
   />
 
-  <view class="map-scrim"></view>
+  <view class="map-header-bg" style="height: {{navMetrics.headerHeight}}px;"></view>
 
   <view
     class="custom-nav"
     style="padding-top: {{navMetrics.statusBarHeight}}px; min-height: {{navMetrics.navBarHeight}}px;"
   >
-    <view class="nav-title">上海学习地图</view>
+    <view class="nav-title" style="padding-right: {{navMetrics.capsuleReserve}}px;">上海学习地图</view>
   </view>
 
-  <view class="top-panel" style="top: {{navMetrics.topOffset}}px;">
+  <view class="top-panel" style="top: {{navMetrics.filterTop}}px;">
     <scroll-view class="category-scroll" scroll-x enhanced show-scrollbar="{{false}}">
-      <view class="category-row">
+      <view class="category-row" style="padding-right: {{navMetrics.capsuleReserve}}px;">
         <block wx:for="{{categoryTabs}}" wx:key="name">
           <button
             class="category-chip {{item.active ? 'active' : ''}}"
@@ -33,7 +33,7 @@
             data-category="{{item.name}}"
             bindtap="toggleCategory"
           >
-            <text class="category-dot" style="background: {{item.color}};"></text>
+            <text wx:if="{{item.name !== '全部'}}" class="category-dot" style="background: {{item.color}};"></text>
             <text>{{item.name}}</text>
           </button>
         </block>
@@ -42,35 +42,53 @@
   </view>
 
   <view class="load-tip" wx:if="{{loadError}}">{{loadError}}</view>
+  <view class="empty-tip" wx:if="{{noResultsInView}}">附近没有结果</view>
 
-  <view class="map-actions">
-    <button class="location-button" aria-label="定位" bindtap="moveToUserLocation">
-      <text class="location-glyph">◎</text>
-    </button>
+  <view class="map-actions {{selectedPlace ? 'with-sheet' : ''}}">
+    <view class="location-button" aria-label="定位" bindtap="moveToUserLocation">
+      <image class="location-icon" src="/assets/actions/map/ditu_ditu_dw.png" mode="aspectFit" />
+    </view>
   </view>
 
   <view class="bottom-sheet" wx:if="{{selectedPlace}}">
     <view class="sheet-main">
-      <view class="sheet-icon" style="background: {{selectedPlace.categoryColor}};">{{selectedPlace.categoryShortName}}</view>
+      <view class="sheet-icon">
+        <image class="sheet-avatar" src="{{selectedPlace.mapCardAvatarPath}}" mode="aspectFit" />
+      </view>
       <view class="sheet-content">
         <view class="sheet-title">{{selectedPlace.name}}</view>
-        <view class="sheet-address">⌖ {{selectedPlace.address || '地址待补充'}}</view>
-        <view class="sheet-hours">◴ {{selectedPlace.displayHours}}</view>
-        <view class="sheet-tags" wx:if="{{selectedPlace.tags.length}}">
-          <block wx:for="{{selectedPlace.tags}}" wx:key="*this">
-            <text class="tag">{{item}}</text>
-          </block>
+        <view class="sheet-meta-row">
+          <image class="sheet-meta-icon" src="/assets/actions/map/ditu_kapian_dz.png" mode="aspectFit" />
+          <text class="sheet-meta-text">{{selectedPlace.address || '地址待补充'}}</text>
+        </view>
+        <view class="sheet-meta-row">
+          <image class="sheet-meta-icon" src="/assets/actions/map/ditu_kapian_sj.png" mode="aspectFit" />
+          <text class="sheet-meta-text">{{selectedPlace.displayHours}}</text>
+        </view>
+        <view class="sheet-tag-line">
+          <view class="sheet-tags" wx:if="{{selectedPlace.tags.length}}">
+            <block wx:for="{{selectedPlace.tags}}" wx:key="*this">
+              <text class="tag">{{item}}</text>
+            </block>
+          </view>
+          <view class="sheet-distance" wx:if="{{selectedPlace.distanceText}}">{{selectedPlace.distanceText}}</view>
         </view>
       </view>
-      <view class="sheet-distance" wx:if="{{selectedPlace.distanceText}}">{{selectedPlace.distanceText}}</view>
     </view>
     <view class="sheet-divider"></view>
     <view class="sheet-actions">
-      <button class="primary-button sheet-action" bindtap="openLocation"><text>➤</text>导航</button>
-      <button class="secondary-button sheet-action" bindtap="goToDetail"><text>▤</text>详情</button>
-      <button class="secondary-button sheet-action {{selectedPlace.isFavorite ? 'active' : ''}}" bindtap="toggleFavorite">
-        <text>☆</text>{{selectedPlace.isFavorite ? '已收藏' : '收藏'}}
-      </button>
+      <view class="primary-button sheet-action" bindtap="openLocation">
+        <image class="sheet-action-icon" src="/assets/actions/map/ditu_kapian_dh.png" mode="aspectFit" />
+        <text>导航</text>
+      </view>
+      <view class="secondary-button sheet-action" bindtap="goToDetail">
+        <image class="sheet-action-icon" src="/assets/actions/map/ditu_kapian_xq.png" mode="aspectFit" />
+        <text>详情</text>
+      </view>
+      <view class="secondary-button sheet-action {{selectedPlace.isFavorite ? 'active' : ''}}" bindtap="toggleFavorite">
+        <image class="sheet-action-icon" src="{{selectedPlace.isFavorite ? '/assets/actions/map/ditu_kapian_sc_yishoucang.png' : '/assets/actions/map/ditu_kapian_sc_weishoucang.png'}}" mode="aspectFit" />
+        <text>{{selectedPlace.isFavorite ? '已收藏' : '收藏'}}</text>
+      </view>
     </view>
   </view>
 </view>

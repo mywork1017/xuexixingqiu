@@ -40,3 +40,41 @@ for f in $(find miniprogram cloudfunctions tests scripts -name '*.js' -print); d
 - 页面、样式、交互改动：用户点击“编译”即可看到效果。
 - 云函数改动：用户右键对应云函数目录，选择“上传并部署：云端安装依赖”。
 - 数据改动：用户在云开发数据库 `places` 集合导入 `data/places-import.json`，优先选择按 `_id` 覆盖或更新。
+
+## Context Engine (CCE)
+
+This project keeps a local Code Context Engine index for on-demand code
+retrieval. The CCE MCP server is disabled globally to avoid persistent Python
+background processes.
+
+### Searching the codebase
+
+Use `cce search "<query>" --top-k 5` from the project root when exploring the
+codebase, answering questions about code, or finding related implementation
+patterns. Keep command output short and read only the files needed for the
+current task.
+
+When to use `cce search`:
+- Answering questions about the codebase ("how does X work?", "where is Y?")
+- Exploring structure or architecture
+- Finding related code, functions, or patterns
+
+### Cross-session memory
+
+Use the repo docs and existing memory workflow for non-trivial questions. If
+CCE results are stale, run `cce index` during a quiet moment.
+
+### Output style
+
+Respond in compressed style. Drop articles (a, an, the) in prose. Use
+sentence fragments over full sentences. Use short synonyms (fix not resolve,
+check not investigate). Pattern: [thing] [action] [reason]. [next step].
+No filler, hedging, pleasantries, trailing summaries, or restating what
+the user said. One sentence if one sentence is enough.
+
+When suggesting code changes, show only the changed lines with 3 lines of
+context. Never rewrite entire files. Multiple changes in one file: show each
+change separately. Never echo back unchanged code the user already has.
+
+Code blocks, file paths, commands, error messages: always written in full.
+Security warnings and destructive action confirmations: use full clarity.

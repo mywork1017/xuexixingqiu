@@ -1,30 +1,58 @@
 <view class="page detail-page" wx:if="{{place}}">
   <view
     class="custom-nav"
-    style="padding-top: {{navMetrics.statusBarHeight}}px; min-height: {{navMetrics.navBarHeight}}px;"
+    style="height: {{navMetrics.topOffset}}px;"
   >
-    <button class="back-button" bindtap="goBack">‹</button>
-    <view class="nav-title">地点详情</view>
+    <view
+      class="nav-content"
+      style="top: {{navMetrics.statusBarHeight}}px; height: {{navMetrics.navBarHeight}}px;"
+    >
+      <view class="back-button" aria-label="返回" bindtap="goBack">‹</view>
+      <view class="nav-title">地点详情</view>
+    </view>
   </view>
 
-  <scroll-view class="detail-scroll" scroll-y>
+  <scroll-view class="detail-scroll" scroll-y style="padding-top: {{navMetrics.topOffset}}px;">
     <view class="photo-panel">
-      <image class="cover-photo" src="{{place.displayCover}}" mode="aspectFill" />
+      <swiper
+        wx:if="{{place.displayPhotos.length > 1}}"
+        class="photo-swiper"
+        circular
+        autoplay
+        interval="4200"
+        duration="420"
+      >
+        <block wx:for="{{place.displayPhotos}}" wx:key="*this">
+          <swiper-item>
+            <image class="cover-photo" src="{{item}}" mode="aspectFill" />
+          </swiper-item>
+        </block>
+      </swiper>
+      <image wx:else class="cover-photo" src="{{place.displayPhotos[0]}}" mode="aspectFill" />
     </view>
 
     <view class="hero">
-      <view class="place-icon" style="background: {{place.categoryColor}};">{{place.categoryShortName}}</view>
+      <view class="place-icon">
+        <image class="place-avatar" src="{{place.detailMainAvatarPath}}" mode="aspectFit" />
+      </view>
       <view class="hero-main">
         <view class="title">{{place.name}}</view>
-        <view class="address">⌖ {{place.address}}</view>
+        <view class="address">
+          <image class="detail-meta-icon" src="/assets/actions/detail/xiangqing_toubu_dz.png" mode="aspectFit" />
+          <text>{{place.address}}</text>
+        </view>
       </view>
     </view>
 
     <view class="action-row">
-      <button class="primary-button action-button" bindtap="openLocation">➤ 导航</button>
-      <button class="secondary-button action-button {{isFavorite ? 'active' : ''}}" bindtap="toggleFavorite">
-        ☆ {{isFavorite ? '已收藏' : '收藏'}}
-      </button>
+      <view class="primary-button action-button" bindtap="openLocation">
+        <image class="detail-action-icon" src="/assets/actions/detail/xiangqing_caozuo_dh.png" mode="aspectFit" />
+        <text>导航</text>
+      </view>
+      <view class="secondary-button action-button {{isFavorite ? 'active' : ''}}" bindtap="toggleFavorite">
+        <image class="detail-action-icon" src="{{isFavorite ? '/assets/actions/detail/xiangqing_caozuo_sc_yishoucang.png' : '/assets/actions/detail/xiangqing_caozuo_sc_weishoucang.png'}}" mode="aspectFit" />
+        <text>{{isFavorite ? '已收藏' : '收藏'}}</text>
+      </view>
     </view>
 
     <view class="section map-section">
@@ -35,14 +63,22 @@
         longitude="{{place.longitude}}"
         scale="16"
         markers="{{mapMarkers}}"
+        polygons="{{mapScrimPolygons}}"
         subkey="{{mapStyle.subkey}}"
         layer-style="{{mapStyle.layerStyle}}"
+        enable-scroll="{{false}}"
+        enable-zoom="{{false}}"
+        enable-rotate="{{false}}"
+        show-compass="{{false}}"
       />
     </view>
 
     <view class="section">
       <view class="section-title">开放时间</view>
-      <view class="section-body">◴ {{place.displayHours}}</view>
+      <view class="section-body icon-body">
+        <image class="detail-meta-icon" src="/assets/actions/detail/xiangqing_xinxi_sj.png" mode="aspectFit" />
+        <text>{{place.displayHours}}</text>
+      </view>
     </view>
 
     <view class="section" wx:if="{{place.displayDescription}}">
@@ -73,7 +109,7 @@
               data-category="{{item.name}}"
               bindtap="toggleNearbyCategory"
             >
-              <text class="category-dot" style="background: {{item.color}};"></text>
+              <text wx:if="{{item.name !== '全部'}}" class="category-dot" style="background: {{item.color}};"></text>
               <text>{{item.name}}</text>
             </button>
           </block>
@@ -83,7 +119,9 @@
       <view class="nearby-list" wx:if="{{nearbyPlaces.length}}">
         <block wx:for="{{nearbyPlaces}}" wx:key="id">
           <view class="nearby-item" data-id="{{item.id}}" bindtap="goToDetail">
-            <view class="nearby-icon" style="background: {{item.categoryColor}};">{{item.categoryShortName}}</view>
+            <view class="nearby-icon">
+              <image class="nearby-avatar" src="{{item.nearbyAvatarPath}}" mode="aspectFit" />
+            </view>
             <view class="nearby-main">
               <view class="nearby-name">{{item.name}}</view>
               <view class="nearby-address">{{item.address}}</view>

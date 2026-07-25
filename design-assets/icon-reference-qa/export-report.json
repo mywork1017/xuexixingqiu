@@ -1,0 +1,206 @@
+[
+  {
+    "source": "location",
+    "output": "miniprogram/assets/actions/locate-v3.png",
+    "size": [
+      96,
+      96
+    ],
+    "crop_size": [
+      86,
+      80
+    ],
+    "resized_size": [
+      96,
+      89
+    ],
+    "byte_diff_after_save": 0
+  },
+  {
+    "source": "location",
+    "output": "miniprogram/assets/actions/meta-location-v3.png",
+    "size": [
+      96,
+      96
+    ],
+    "crop_size": [
+      86,
+      80
+    ],
+    "resized_size": [
+      96,
+      89
+    ],
+    "byte_diff_after_save": 0
+  },
+  {
+    "source": "time",
+    "output": "miniprogram/assets/actions/meta-time-v3.png",
+    "size": [
+      96,
+      96
+    ],
+    "crop_size": [
+      88,
+      88
+    ],
+    "resized_size": [
+      96,
+      96
+    ],
+    "byte_diff_after_save": 0
+  },
+  {
+    "source": "nav",
+    "output": "miniprogram/assets/actions/nav-gold-v3.png",
+    "size": [
+      96,
+      96
+    ],
+    "crop_size": [
+      114,
+      114
+    ],
+    "resized_size": [
+      96,
+      96
+    ],
+    "byte_diff_after_save": 0
+  },
+  {
+    "source": "detail",
+    "output": "miniprogram/assets/actions/detail-dark-v3.png",
+    "size": [
+      96,
+      96
+    ],
+    "crop_size": [
+      102,
+      108
+    ],
+    "resized_size": [
+      91,
+      96
+    ],
+    "byte_diff_after_save": 0
+  },
+  {
+    "source": "favorite",
+    "output": "miniprogram/assets/actions/favorite-dark-v3.png",
+    "size": [
+      96,
+      96
+    ],
+    "crop_size": [
+      108,
+      106
+    ],
+    "resized_size": [
+      96,
+      94
+    ],
+    "byte_diff_after_save": 0
+  },
+  {
+    "source": "space",
+    "output": "miniprogram/assets/place-avatars/library-avatar-v3.png",
+    "size": [
+      140,
+      140
+    ],
+    "crop_size": [
+      102,
+      110
+    ],
+    "resized_size": [
+      130,
+      140
+    ],
+    "byte_diff_after_save": 0
+  },
+  {
+    "source": "shop",
+    "output": "miniprogram/assets/place-avatars/bookstore-avatar-v3.png",
+    "size": [
+      140,
+      140
+    ],
+    "crop_size": [
+      274,
+      280
+    ],
+    "resized_size": [
+      137,
+      140
+    ],
+    "byte_diff_after_save": 0
+  },
+  {
+    "source": "space",
+    "output": "miniprogram/assets/place-avatars/study-avatar-v3.png",
+    "size": [
+      140,
+      140
+    ],
+    "crop_size": [
+      102,
+      110
+    ],
+    "resized_size": [
+      130,
+      140
+    ],
+    "byte_diff_after_save": 0
+  },
+  {
+    "source": "service",
+    "output": "miniprogram/assets/place-avatars/service-avatar-v3.png",
+    "size": [
+      140,
+      140
+    ],
+    "crop_size": [
+      214,
+      200
+    ],
+    "resized_size": [
+      140,
+      131
+    ],
+    "byte_diff_after_save": 0
+  },
+  {
+    "source": "canteen",
+    "output": "miniprogram/assets/place-avatars/canteen-avatar-v3.png",
+    "size": [
+      140,
+      140
+    ],
+    "crop_size": [
+      90,
+      104
+    ],
+    "resized_size": [
+      121,
+      140
+    ],
+    "byte_diff_after_save": 0
+  },
+  {
+    "source": "user",
+    "output": "miniprogram/assets/backdrops/default-avatar.png",
+    "size": [
+      512,
+      512
+    ],
+    "crop_size": [
+      358,
+      356
+    ],
+    "resized_size": [
+      512,
+      509
+    ],
+    "byte_diff_after_save": 0
+  }
+]

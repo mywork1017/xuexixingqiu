@@ -10,9 +10,16 @@ const favorites = db.collection('userFavorites');
 async function listFavorites(openid) {
   const result = await favorites
     .where({ _openid: openid })
+    .orderBy('createdAt', 'desc')
     .get();
 
-  return result.data.map((item) => item.placeId).filter(Boolean);
+  return result.data
+    .filter((item) => item.placeId)
+    .map((item) => ({
+      placeId: item.placeId,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt
+    }));
 }
 
 async function addFavorite(openid, placeId) {
@@ -62,8 +69,11 @@ exports.main = async (event) => {
     await removeFavorite(OPENID, placeId);
   }
 
+  const records = await listFavorites(OPENID);
+
   return {
     ok: true,
-    placeIds: await listFavorites(OPENID)
+    records,
+    placeIds: records.map((record) => record.placeId)
   };
 };
