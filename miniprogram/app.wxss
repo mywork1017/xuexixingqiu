@@ -1,6 +1,6 @@
 page {
-  background: #f7f7fa;
-  color: #18181b;
+  background: #f2f2f7;
+  color: #1c1c1e;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
   font-size: 28rpx;
   line-height: 1.5;
@@ -22,9 +22,9 @@ button::after {
 .icon-button {
   align-items: center;
   background: #ffffff;
-  border: 1rpx solid #e5e2e9;
-  border-radius: 12rpx;
-  color: #18181b;
+  border: 1rpx solid #d1d1d6;
+  border-radius: 20rpx;
+  color: #1c1c1e;
   display: flex;
   height: 80rpx;
   justify-content: center;
@@ -35,7 +35,7 @@ button::after {
 .primary-button,
 .secondary-button {
   align-items: center;
-  border-radius: 12rpx;
+  border-radius: 20rpx;
   display: flex;
   font-weight: 500;
   justify-content: center;
@@ -45,13 +45,13 @@ button::after {
 }
 
 .primary-button {
-  background: #7d36ec;
-  border: 1rpx solid #7d36ec;
+  background: #000000;
+  border: 1rpx solid #000000;
   color: #ffffff;
 }
 
 .secondary-button {
-  background: #ffffff;
-  border: 1rpx solid #e5e2e9;
-  color: #18181b;
+  background: #f2f2f7;
+  border: 0;
+  color: #1c1c1e;
 }
