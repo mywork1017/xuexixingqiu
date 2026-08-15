@@ -21,7 +21,7 @@
     class="custom-nav"
     style="padding-top: {{navMetrics.statusBarHeight}}px; min-height: {{navMetrics.navBarHeight}}px; transform: translateY({{navMetrics.contentOffset}}px);"
   >
-    <view class="nav-title" style="padding-right: {{navMetrics.capsuleReserve}}px;">上海学习地图</view>
+    <view class="nav-title" style="padding-right: {{navMetrics.capsuleReserve}}px;">通仔的学习星球</view>
   </view>
 
   <view class="top-panel" style="top: {{navMetrics.filterTop}}px;">

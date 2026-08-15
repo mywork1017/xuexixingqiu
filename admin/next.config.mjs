@@ -1,16 +1,16 @@
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PHASE_DEVELOPMENT_SERVER } from 'next/constants.js';
 
 const adminRoot = dirname(fileURLToPath(import.meta.url));
 
 /** @type {import('next').NextConfig} */
-const nextConfig = {
+const createNextConfig = (phase) => ({
+  distDir: phase === PHASE_DEVELOPMENT_SERVER ? '.next-dev' : '.next',
   outputFileTracingRoot: adminRoot,
   experimental: {
-    serverActions: {
-      bodySizeLimit: '8mb'
-    }
+    optimizePackageImports: ['antd', '@ant-design/icons']
   }
-};
+});
 
-export default nextConfig;
+export default createNextConfig;
