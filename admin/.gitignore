@@ -1,7 +1,12 @@
 .next
+.next-dev
 node_modules
 prisma/dev.db
 prisma/dev.db-journal
+prisma/backups/
+*.tsbuildinfo
 .env.local
 public/uploads/*
 !public/uploads/.gitkeep
+!public/uploads/seed/
+!public/uploads/seed/**

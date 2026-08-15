@@ -1,7 +1,7 @@
 {
-  "description": "上海学习地图微信小程序",
+  "description": "通仔的学习星球微信小程序",
   "appid": "wx9e24d32ac69faf81",
-  "projectname": "shanghai-study-map",
+  "projectname": "通仔的学习星球",
   "miniprogramRoot": "miniprogram/",
   "cloudfunctionRoot": "cloudfunctions/",
   "setting": {

@@ -8,19 +8,13 @@
     "longitude": "number",
     "address": "string",
     "hours": "string",
-    "phone": "string",
-    "tags": "array<string>",
     "description": "string",
     "priority": "string",
     "photos": "array<string>",
-    "source": "string",
     "updatedAt": "string"
   },
   "categories": [
     "图书馆",
-    "党群服务中心",
-    "社区食堂",
-    "书店",
-    "自习室"
+    "食堂"
   ]
 }

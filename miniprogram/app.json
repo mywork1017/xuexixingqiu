@@ -1,15 +1,13 @@
 {
   "pages": [
     "pages/map/map",
-    "pages/favorites/favorites",
-    "pages/list/list",
     "pages/detail/detail"
   ],
   "window": {
-    "navigationBarTitleText": "上海学习地图",
+    "navigationBarTitleText": "通仔的学习星球",
     "navigationBarBackgroundColor": "#ffffff",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#f7f7fa",
+    "backgroundColor": "#f2f2f7",
     "navigationStyle": "custom"
   },
   "permission": {
@@ -20,27 +18,6 @@
   "requiredPrivateInfos": [
     "getLocation"
   ],
-  "tabBar": {
-    "custom": true,
-    "color": "#a0a0a0",
-    "selectedColor": "#7d36ec",
-    "backgroundColor": "#ffffff",
-    "borderStyle": "black",
-    "list": [
-      {
-        "pagePath": "pages/map/map",
-        "text": "地图",
-        "iconPath": "assets/tabs/ditu_tab_ditu_weixuan.png",
-        "selectedIconPath": "assets/tabs/ditu_tab_ditu_xuanzhong.png"
-      },
-      {
-        "pagePath": "pages/favorites/favorites",
-        "text": "我的",
-        "iconPath": "assets/tabs/wode_tab_wode_weixuan.png",
-        "selectedIconPath": "assets/tabs/wode_tab_wode_xuanzhong.png"
-      }
-    ]
-  },
   "style": "v2",
   "sitemapLocation": "sitemap.json"
 }

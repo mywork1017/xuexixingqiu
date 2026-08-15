@@ -1,81 +1,107 @@
 const CATEGORY_OPTIONS = [
   '图书馆',
-  '书店',
-  '自习室',
-  '党群服务中心',
-  '社区食堂'
+  '食堂'
 ];
 
 const CATEGORY_FILTER_OPTIONS = ['全部', ...CATEGORY_OPTIONS];
 
 const CATEGORY_ASSET_KEYS = {
   图书馆: 'tsg',
-  书店: 'sd',
-  自习室: 'zxs',
-  党群服务中心: 'dq',
-  社区食堂: 'st'
+  食堂: 'st'
 };
 
 const CATEGORY_META = {
-  图书馆: { color: '#7f9661', shortName: '图', assetKey: CATEGORY_ASSET_KEYS['图书馆'] },
-  书店: { color: '#b8894d', shortName: '书', assetKey: CATEGORY_ASSET_KEYS['书店'] },
-  自习室: { color: '#7471b8', shortName: '习', assetKey: CATEGORY_ASSET_KEYS['自习室'] },
-  党群服务中心: { color: '#b74b42', shortName: '党', assetKey: CATEGORY_ASSET_KEYS['党群服务中心'] },
-  社区食堂: { color: '#a8b85a', shortName: '食', assetKey: CATEGORY_ASSET_KEYS['社区食堂'] }
+  图书馆: {
+    color: '#000000',
+    markerStyle: 'solid',
+    shortName: '图',
+    assetKey: CATEGORY_ASSET_KEYS['图书馆']
+  },
+  食堂: {
+    color: '#000000',
+    markerStyle: 'inverse',
+    shortName: '食',
+    assetKey: CATEGORY_ASSET_KEYS['食堂']
+  }
 };
 
 const LOW_SCALE_THRESHOLD = 11;
 const EARTH_RADIUS_KM = 6371;
-const DEFAULT_DETAIL_COVER = '/assets/backdrops/detail-cover.png';
+const SELECTED_MARKER_Z_INDEX = 999;
 
-function createPlaceImportId(place) {
-  const source = `${place.category || ''}|${place.name || ''}|${place.address || ''}`;
-  let hash = 2166136261;
-
-  for (let index = 0; index < source.length; index += 1) {
-    hash ^= source.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
+function normalizeDelimitedValues(values) {
+  if (Array.isArray(values)) {
+    return values.filter(Boolean);
   }
-
-  return `place_${(hash >>> 0).toString(36)}`;
-}
-
-function normalizeTags(tags) {
-  if (Array.isArray(tags)) {
-    return tags.filter(Boolean);
-  }
-  if (!tags) {
+  if (!values) {
     return [];
   }
-  return String(tags)
+  return String(values)
     .split(/[;；,，]/)
     .map((tag) => tag.trim())
     .filter(Boolean);
 }
 
 function getPlaceVisualMeta(category) {
-  const meta = CATEGORY_META[category] || CATEGORY_META['图书馆'];
+  const meta = CATEGORY_META[normalizeCategory(category)] || CATEGORY_META['图书馆'];
   const assetKey = meta.assetKey || CATEGORY_ASSET_KEYS['图书馆'];
-  const selectedMarkerIconPath = `/assets/markers/map/ditu_xiangqing_ditu_${assetKey}_xuanzhong.png`;
-  const categoryIconPath = `/assets/place-avatars/category/ditu_xiangqing_wode_fenlei_${assetKey}.png`;
   return {
     ...meta,
-    mapMarkerColor: meta.color,
-    mapSelectedMarkerIconPath: selectedMarkerIconPath,
-    detailMapSelectedMarkerIconPath: selectedMarkerIconPath,
-    mapCardAvatarPath: categoryIconPath,
-    detailMainAvatarPath: categoryIconPath,
-    nearbyAvatarPath: categoryIconPath,
-    favoriteAvatarPath: categoryIconPath
+    mapMarkerColor: meta.color
   };
+}
+
+function normalizeCategory(category) {
+  return category;
+}
+
+function normalizeCategoryIconPaths(iconPaths) {
+  return Object.entries(iconPaths || {}).reduce((paths, [category, iconPath]) => {
+    if (iconPath) {
+      paths[normalizeCategory(category)] = iconPath;
+    }
+    return paths;
+  }, {});
+}
+
+function normalizePlaceCategory(place) {
+  const category = normalizeCategory(place.category);
+  return category === place.category ? place : { ...place, category };
 }
 
 function getPlaceDisplayPhotos(place) {
   const normalizedPhotos = Array.isArray(place && place.photos)
     ? place.photos.filter(Boolean)
-    : normalizeTags(place && place.imageUrls);
+    : normalizeDelimitedValues(place && place.imageUrls);
 
-  return normalizedPhotos.length ? normalizedPhotos : [DEFAULT_DETAIL_COVER];
+  return normalizedPhotos;
+}
+
+function getPlaceDisplayAddress(place) {
+  return String((place && place.address) || '').trim() || '地址待补充';
+}
+
+function getPlaceDisplayHours(place) {
+  const hours = String((place && place.hours) || '').trim();
+  return hours && !/现场公示/.test(hours) ? hours : '—';
+}
+
+function getPlaceNavigationLabel(place) {
+  return normalizeCategory(place && place.category) === '食堂' ? '去吃饭' : '去学习';
+}
+
+function sanitizePlaceDescription(value) {
+  const source = String(value || '').replace(/\s+/g, ' ').trim();
+  return source.replace(/[。！？；;，,.!?]+$/g, '');
+}
+
+function isExcludedPlaceType(place) {
+  const name = String((place && place.name) || place || '');
+  if (name === '阅闲坊') return true;
+  if (/(书房|图书室|阅读空间|借阅点|流动图书)/.test(name) && !/图书馆/.test(name)) {
+    return true;
+  }
+  return /(党群|党建)/.test(name) && !/图书馆/.test(name);
 }
 
 function normalizePlace(rawPlace) {
@@ -83,30 +109,33 @@ function normalizePlace(rawPlace) {
   const longitude = Number(rawPlace.longitude);
   const photos = Array.isArray(rawPlace.photos)
     ? rawPlace.photos.filter(Boolean)
-    : normalizeTags(rawPlace.imageUrls);
+    : normalizeDelimitedValues(rawPlace.imageUrls);
 
   return {
     ...rawPlace,
     id: rawPlace.id || rawPlace._id || rawPlace.placeId || rawPlace.name,
+    category: normalizeCategory(rawPlace.category),
     latitude,
     longitude,
-    tags: normalizeTags(rawPlace.tags),
-    phone: rawPlace.phone || '',
     hours: rawPlace.hours || '',
     address: rawPlace.address || '',
-    description: rawPlace.description || '',
+    description: sanitizePlaceDescription(rawPlace.description || rawPlace.facilities || ''),
     priority: rawPlace.priority || '',
     photos,
-    source: rawPlace.source || 'manual',
     updatedAt: rawPlace.updatedAt || ''
   };
 }
 
 function filterPlaces(places, category) {
+  const normalizedPlaces = places.map(normalizePlaceCategory).filter((place) => !isExcludedPlaceType(place));
   if (!category || category === '全部') {
-    return places;
+    return normalizedPlaces.filter((place) => CATEGORY_OPTIONS.includes(place.category));
   }
-  return places.filter((place) => place.category === category);
+  const normalizedCategory = normalizeCategory(category);
+  if (!CATEGORY_OPTIONS.includes(normalizedCategory)) {
+    return [];
+  }
+  return normalizedPlaces.filter((place) => place.category === normalizedCategory);
 }
 
 function filterPlacesByCategories(places, categories) {
@@ -118,8 +147,12 @@ function filterPlacesByCategories(places, categories) {
     return [];
   }
 
-  const selectedCategories = new Set(categories);
-  return places.filter((place) => selectedCategories.has(place.category));
+  const selectedCategories = new Set(
+    categories.filter((category) => CATEGORY_OPTIONS.includes(category))
+  );
+  return places
+    .map(normalizePlaceCategory)
+    .filter((place) => selectedCategories.has(place.category) && !isExcludedPlaceType(place));
 }
 
 function getActiveCategoriesForFilter(filterName) {
@@ -140,6 +173,25 @@ function isPlaceInBounds(place, bounds) {
     && normalizedPlace.latitude <= bounds.northeast.latitude
     && normalizedPlace.longitude >= bounds.southwest.longitude
     && normalizedPlace.longitude <= bounds.northeast.longitude;
+}
+
+function getBoundsInsideVerticalOverlays(bounds, topOccludedRatio, bottomOccludedRatio) {
+  if (!bounds || !bounds.southwest || !bounds.northeast) {
+    return bounds;
+  }
+  const topRatio = Math.max(0, Math.min(Number(topOccludedRatio) || 0, 0.45));
+  const bottomRatio = Math.max(0, Math.min(Number(bottomOccludedRatio) || 0, 0.45));
+  const latitudeSpan = bounds.northeast.latitude - bounds.southwest.latitude;
+  return {
+    southwest: {
+      ...bounds.southwest,
+      latitude: bounds.southwest.latitude + (latitudeSpan * bottomRatio)
+    },
+    northeast: {
+      ...bounds.northeast,
+      latitude: bounds.northeast.latitude - (latitudeSpan * topRatio)
+    }
+  };
 }
 
 function shouldShowPlaceAtScale(place, scale) {
@@ -219,28 +271,6 @@ function getDistanceText(distanceKm) {
   return `${distance.toFixed(1)} 公里`;
 }
 
-function sortPlacesByFavoriteRecords(places, favoriteRecords) {
-  const createdAtByPlaceId = new Map((Array.isArray(favoriteRecords) ? favoriteRecords : [])
-    .map((record, index) => [
-      record.placeId,
-      {
-        index,
-        time: record.createdAt ? new Date(record.createdAt).getTime() : 0
-      }
-    ]));
-
-  return places.slice().sort((first, second) => {
-    const firstMeta = createdAtByPlaceId.get(first.id) || { index: Number.MAX_SAFE_INTEGER, time: 0 };
-    const secondMeta = createdAtByPlaceId.get(second.id) || { index: Number.MAX_SAFE_INTEGER, time: 0 };
-
-    if (firstMeta.time !== secondMeta.time) {
-      return secondMeta.time - firstMeta.time;
-    }
-
-    return firstMeta.index - secondMeta.index;
-  });
-}
-
 function getNearbyPlaces(targetPlace, places, options = {}) {
   const radiusKm = Number(options.radiusKm || 2);
   const categories = options.categories || [];
@@ -256,23 +286,82 @@ function getNearbyPlaces(targetPlace, places, options = {}) {
     .sort((a, b) => a.distanceKm - b.distanceKm);
 }
 
+function orderPlacesByProximity(places, anchorPlace) {
+  const normalizedPlaces = places.map(normalizePlace);
+  if (normalizedPlaces.length < 2) {
+    return normalizedPlaces;
+  }
+
+  const anchorId = anchorPlace && anchorPlace.id;
+  const anchorIndex = Math.max(0, normalizedPlaces.findIndex((place) => place.id === anchorId));
+  const anchor = normalizedPlaces[anchorIndex];
+  const route = [anchor];
+  const remaining = normalizedPlaces.filter((_, index) => index !== anchorIndex);
+
+  const takeNearest = (target) => {
+    let nearestIndex = 0;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+    remaining.forEach((place, index) => {
+      const distance = getDistanceKm(target, place);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = index;
+      }
+    });
+    return remaining.splice(nearestIndex, 1)[0];
+  };
+
+  route.push(takeNearest(anchor));
+  if (remaining.length) {
+    route.unshift(takeNearest(anchor));
+  }
+
+  while (remaining.length) {
+    let candidateIndex = 0;
+    let insertionSide = 'right';
+    let nearestEndpointDistance = Number.POSITIVE_INFINITY;
+    remaining.forEach((place, index) => {
+      const leftDistance = getDistanceKm(route[0], place);
+      const rightDistance = getDistanceKm(route[route.length - 1], place);
+      const distance = Math.min(leftDistance, rightDistance);
+      if (distance < nearestEndpointDistance) {
+        nearestEndpointDistance = distance;
+        candidateIndex = index;
+        insertionSide = leftDistance < rightDistance ? 'left' : 'right';
+      }
+    });
+    const [candidate] = remaining.splice(candidateIndex, 1);
+    if (insertionSide === 'left') {
+      route.unshift(candidate);
+    } else {
+      route.push(candidate);
+    }
+  }
+
+  const rotatedAnchorIndex = route.findIndex((place) => place.id === anchor.id);
+  return route.slice(rotatedAnchorIndex).concat(route.slice(0, rotatedAnchorIndex));
+}
+
 function placesToMarkers(places, options = {}) {
   let markerId = 1;
   const markers = [];
   const selectedMarkers = [];
-  const markerUsage = options.markerUsage || 'map';
-  const mapDotIconPaths = options.mapDotIconPaths || {};
-  const selectedLabelIcon = options.selectedLabelIcon || null;
+  const mapDotIconPaths = normalizeCategoryIconPaths(options.mapDotIconPaths);
+  const selectedMapDotIconPath = options.selectedMapDotIconPath || '';
+  const selectedMapDotIconPaths = normalizeCategoryIconPaths(options.selectedMapDotIconPaths);
   const originalLayerByPlaceId = new Map((options.allPlaceIds || [])
     .map((placeId, index) => [placeId, index]));
 
   places
     .map(normalizePlace)
+    .filter((place) => !isExcludedPlaceType(place))
     .filter((place) => Number.isFinite(place.latitude) && Number.isFinite(place.longitude))
     .forEach((place, index) => {
-      const meta = getPlaceVisualMeta(place.category);
       const selected = place.id === options.selectedPlaceId;
-      const dotIconPath = mapDotIconPaths[place.category];
+      const selectedIconPath = selectedMapDotIconPaths[place.category] || selectedMapDotIconPath;
+      const dotIconPath = selected && selectedIconPath
+        ? selectedIconPath
+        : mapDotIconPaths[place.category];
       const originalLayer = originalLayerByPlaceId.has(place.id)
         ? originalLayerByPlaceId.get(place.id)
         : index;
@@ -284,129 +373,20 @@ function placesToMarkers(places, options = {}) {
           markerType: 'dot',
           latitude: place.latitude,
           longitude: place.longitude,
-          title: place.name,
           iconPath: dotIconPath,
-          width: selected ? 20 : 18,
-          height: selected ? 20 : 18,
+          width: selected ? 39 : 22,
+          height: selected ? 39 : 22,
+          alpha: 1,
           anchor: { x: 0.5, y: 0.5 },
-          zIndex: selected ? 10000 : 10 + originalLayer
+          zIndex: selected ? SELECTED_MARKER_Z_INDEX : 10 + originalLayer
         };
         (selected ? selectedMarkers : markers).push(dotMarker);
         markerId += 1;
       }
 
-      if (selected) {
-        const selectedIconPath = markerUsage === 'detail-map'
-          ? meta.detailMapSelectedMarkerIconPath
-          : meta.mapSelectedMarkerIconPath;
-        const labelIconPath = selectedLabelIcon && selectedLabelIcon.placeId === place.id
-          ? selectedLabelIcon.path
-          : '';
-
-        selectedMarkers.push({
-          id: markerId,
-          placeId: place.id,
-          markerType: 'selected',
-          latitude: place.latitude,
-          longitude: place.longitude,
-          title: place.name,
-          iconPath: selectedIconPath,
-          width: 27,
-          height: 34,
-          anchor: { x: 0.5, y: 1 },
-          zIndex: 10001
-        });
-        markerId += 1;
-
-        if (labelIconPath) {
-          selectedMarkers.push({
-            id: markerId,
-            placeId: place.id,
-            markerType: 'selected-label',
-            latitude: place.latitude,
-            longitude: place.longitude,
-            title: place.name,
-            iconPath: labelIconPath,
-            width: selectedLabelIcon.width,
-            height: selectedLabelIcon.height,
-            anchor: { x: 0.5, y: 0 },
-            zIndex: 10002
-          });
-          markerId += 1;
-        }
-      }
     });
 
   return markers.concat(selectedMarkers);
-}
-
-function parseCsvLine(line) {
-  const values = [];
-  let current = '';
-  let quoted = false;
-
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index];
-    const next = line[index + 1];
-
-    if (char === '"' && quoted && next === '"') {
-      current += '"';
-      index += 1;
-    } else if (char === '"') {
-      quoted = !quoted;
-    } else if (char === ',' && !quoted) {
-      values.push(current);
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-
-  values.push(current);
-  return values.map((value) => value.trim());
-}
-
-function parsePlacesCsv(csvText) {
-  const lines = String(csvText)
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  if (lines.length < 2) {
-    return [];
-  }
-
-  const headers = parseCsvLine(lines[0]);
-  return lines.slice(1).map((line) => {
-    const values = parseCsvLine(line);
-    const row = headers.reduce((place, header, index) => {
-      place[header] = values[index] || '';
-      return place;
-    }, {});
-    return normalizePlace(row);
-  });
-}
-
-function placesToImportDocuments(places) {
-  return places.map((place) => {
-    const normalizedPlace = normalizePlace(place);
-    return {
-      _id: createPlaceImportId(normalizedPlace),
-      name: normalizedPlace.name,
-      category: normalizedPlace.category,
-      latitude: normalizedPlace.latitude,
-      longitude: normalizedPlace.longitude,
-      address: normalizedPlace.address,
-      hours: normalizedPlace.hours,
-      phone: normalizedPlace.phone,
-      tags: normalizedPlace.tags,
-      description: normalizedPlace.description,
-      priority: normalizedPlace.priority,
-      photos: normalizedPlace.photos,
-      source: normalizedPlace.source,
-      updatedAt: normalizedPlace.updatedAt
-    };
-  });
 }
 
 module.exports = {
@@ -414,20 +394,26 @@ module.exports = {
   CATEGORY_FILTER_OPTIONS,
   CATEGORY_META,
   LOW_SCALE_THRESHOLD,
-  createPlaceImportId,
   filterPlaces,
   filterPlacesByCategories,
   getActiveCategoriesForFilter,
   getDefaultSelectedPlace,
   getDisplayPlaces,
   getDistanceText,
+  getBoundsInsideVerticalOverlays,
+  getPlaceDisplayAddress,
+  getPlaceDisplayHours,
+  getPlaceNavigationLabel,
   getPlaceDisplayPhotos,
   getPlaceVisualMeta,
   getDistanceKm,
   getNearbyPlaces,
+  orderPlacesByProximity,
+  isExcludedPlaceType,
+  isPlaceInBounds,
+  normalizeCategory,
+  normalizeCategoryIconPaths,
   normalizePlace,
-  parsePlacesCsv,
-  placesToImportDocuments,
   placesToMarkers,
-  sortPlacesByFavoriteRecords
+  sanitizePlaceDescription
 };

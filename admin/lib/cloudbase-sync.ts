@@ -1,10 +1,14 @@
 import cloudbase from '@cloudbase/node-sdk';
+import { createReadStream, existsSync } from 'node:fs';
+import path from 'node:path';
 import { prisma } from '@/lib/prisma';
+import { getPlaceFingerprint } from '@/lib/place-fingerprint';
 import { toMiniProgramPlace } from '@/lib/place-shape';
 
 export type CloudBaseSyncResult = {
   ok: boolean;
   pushed: number;
+  deleted: number;
   error?: string;
 };
 
@@ -17,14 +21,37 @@ export function getCloudBaseConfig() {
   };
 }
 
+async function uploadLocalPhotos(
+  app: ReturnType<typeof cloudbase.init>,
+  placeId: string,
+  photos: string[]
+) {
+  const publicRoot = path.resolve(process.cwd(), 'public');
+
+  return Promise.all(photos.map(async (url, index) => {
+    if (!url.startsWith('/uploads/')) return url;
+
+    const localPath = path.resolve(publicRoot, `.${url}`);
+    if (!localPath.startsWith(`${publicRoot}${path.sep}`) || !existsSync(localPath)) {
+      throw new Error(`找不到地点图片：${url}`);
+    }
+
+    const extension = path.extname(localPath).toLowerCase() || '.jpg';
+    const result = await app.uploadFile({
+      cloudPath: `place-photos/${placeId}/${index + 1}${extension}`,
+      fileContent: createReadStream(localPath)
+    });
+    return result.fileID;
+  }));
+}
+
 export async function syncPublishedPlaces(): Promise<CloudBaseSyncResult> {
   const config = getCloudBaseConfig();
   if (!config.env || !config.secretId || !config.secretKey) {
-    return { ok: false, pushed: 0, error: 'missing-config' };
+    return { ok: false, pushed: 0, deleted: 0, error: 'missing-config' };
   }
 
   const places = await prisma.place.findMany({
-    where: { reviewStatus: 'published' },
     orderBy: { updatedAt: 'asc' },
     include: { photos: { orderBy: { sortOrder: 'asc' } } }
   });
@@ -35,17 +62,52 @@ export async function syncPublishedPlaces(): Promise<CloudBaseSyncResult> {
     secretId: config.secretId,
     secretKey: config.secretKey
   });
-  const collection = app.database().collection(config.collection);
+  const database = app.database();
+  const collection = database.collection(config.collection);
+  const publishedIds = new Set(places.map((place) => place.id));
+  const staleIds: string[] = [];
+  const pageSize = 100;
+
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await collection.field({ _id: true }).skip(offset).limit(pageSize).get();
+    const ids = page.data
+      .map((item) => String(item._id || ''))
+      .filter(Boolean);
+    staleIds.push(...ids.filter((id) => !publishedIds.has(id)));
+    if (ids.length < pageSize) break;
+  }
+
   let pushed = 0;
+  let deleted = 0;
+  const pushedFingerprints: Array<{ id: string; fingerprint: string }> = [];
 
   for (let offset = 0; offset < places.length; offset += 20) {
     const batch = places.slice(offset, offset + 20);
     await Promise.all(batch.map(async (place) => {
+      const fingerprint = getPlaceFingerprint(place);
       const payload = toMiniProgramPlace(place);
+      payload.photos = await uploadLocalPhotos(app, place.id, payload.photos);
       await collection.doc(place.id).set(payload);
+      pushedFingerprints.push({ id: place.id, fingerprint });
       pushed += 1;
     }));
   }
 
-  return { ok: true, pushed };
+  for (let offset = 0; offset < staleIds.length; offset += 20) {
+    const batch = staleIds.slice(offset, offset + 20);
+    await Promise.all(batch.map(async (id) => {
+      await collection.doc(id).remove();
+      deleted += 1;
+    }));
+  }
+
+  for (let offset = 0; offset < pushedFingerprints.length; offset += 100) {
+    const batch = pushedFingerprints.slice(offset, offset + 100);
+    await prisma.$transaction(batch.map((item) => prisma.place.update({
+      where: { id: item.id },
+      data: { pushedFingerprint: item.fingerprint }
+    })));
+  }
+
+  return { ok: true, pushed, deleted };
 }

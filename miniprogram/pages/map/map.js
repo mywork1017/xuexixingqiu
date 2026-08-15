@@ -3,68 +3,77 @@ const {
   CATEGORY_FILTER_OPTIONS,
   CATEGORY_META,
   getActiveCategoriesForFilter,
+  getBoundsInsideVerticalOverlays,
   getDistanceKm,
   getDistanceText,
   getDisplayPlaces,
+  getPlaceDisplayAddress,
+  getPlaceDisplayHours,
+  getPlaceNavigationLabel,
   getPlaceVisualMeta,
+  isExcludedPlaceType,
+  isPlaceInBounds,
   normalizePlace,
+  orderPlacesByProximity,
   placesToMarkers
 } = require('../../utils/place-utils');
-const { SAMPLE_PLACES } = require('../../utils/sample-places');
-const { getLocalFavoriteIds, loadFavoriteIds, toggleFavoriteId } = require('../../utils/favorite-store');
-const { MAP_STYLE_CONFIG } = require('../../config/map-style');
+const { drawMapDotIcon } = require('../../utils/map-dot-icon');
 
-const FEATURED_PLACE_NAME = '思南书局';
-const MAP_DOT_CANVAS_SIZE = 48;
+const FEATURED_PLACE_NAME = '上海图书馆东馆';
 const USER_LOCATION_CANVAS_SIZE = 32;
-const SELECTED_LABEL_FONT_SIZE = 11;
-const SELECTED_LABEL_PADDING_X = 30;
-const SELECTED_LABEL_HEIGHT = 46;
+const SELECTED_MARKER_BREATH_INTERVAL_MS = 150;
+const SELECTED_MARKER_BREATH_CYCLE_MS = 1800;
+const SELECTED_MARKER_MIN_SIZE = 39;
+const SELECTED_MARKER_MAX_SIZE = 47;
+const CARD_SWIPE_DURATION_MS = 200;
+const BOTTOM_SHEET_OCCLUDED_RPX = 342;
+const MARKER_EDGE_GUARD_PX = 28;
 const SHANGHAI_CENTER_LOCATION = {
   latitude: 31.2304,
   longitude: 121.4737
 };
-const MAP_SCRIM_POLYGONS = [{
-  points: [
-    { latitude: 85, longitude: -180 },
-    { latitude: 85, longitude: 180 },
-    { latitude: -85, longitude: 180 },
-    { latitude: -85, longitude: -180 }
-  ],
-  fillColor: '#00000047',
-  strokeColor: '#00000000',
-  strokeWidth: 0,
-  zIndex: 20
-}];
-
 function createCategoryTabs(activeFilter) {
-  const chipWidths = {
-    全部: 92,
-    图书馆: 150,
-    书店: 126,
-    自习室: 150,
-    党群服务中心: 218,
-    社区食堂: 188
-  };
-
   return CATEGORY_FILTER_OPTIONS.map((category) => ({
     name: category,
-    color: category === '全部' ? '#d2a66b' : CATEGORY_META[category].color,
-    width: chipWidths[category] || 132,
+    markerStyle: category === '全部' ? '' : CATEGORY_META[category].markerStyle,
     active: activeFilter === category
   }));
 }
 
 function getPageNavMetrics() {
   const navMetrics = getApp().getNavMetrics();
-  const filterTopGap = 2;
+  const contentOffset = 16;
+  const filterTopGap = 18;
   const filterHeight = 44;
   return {
     ...navMetrics,
+    contentOffset,
     filterTop: navMetrics.topOffset + filterTopGap,
     filterHeight,
     headerHeight: navMetrics.topOffset + filterTopGap + filterHeight
   };
+}
+
+function getMapVerticalOcclusionRatios(navMetrics, cardVisible) {
+  try {
+    const windowInfo = typeof wx.getWindowInfo === 'function'
+      ? wx.getWindowInfo()
+      : wx.getSystemInfoSync();
+    const rpxToPx = Number(windowInfo.windowWidth || 375) / 750;
+    const safeAreaBottom = windowInfo.safeArea
+      ? Math.max(0, Number(windowInfo.windowHeight || 0) - Number(windowInfo.safeArea.bottom || 0))
+      : 0;
+    const windowHeight = Number(windowInfo.windowHeight || 667);
+    const bottomCoveredHeight = cardVisible
+      ? (BOTTOM_SHEET_OCCLUDED_RPX * rpxToPx) + safeAreaBottom + MARKER_EDGE_GUARD_PX
+      : 0;
+    return {
+      top: Math.min((Number(navMetrics.headerHeight || 0) + MARKER_EDGE_GUARD_PX) / windowHeight, 0.45),
+      bottom: Math.min(bottomCoveredHeight / windowHeight, 0.45)
+    };
+  } catch (error) {
+    return { top: 0.18, bottom: cardVisible ? 0.28 : 0 };
+  }
 }
 
 function getFeaturedPlace(places) {
@@ -84,64 +93,16 @@ function getNearestPlace(places, location) {
   return nearest ? nearest.place : getFeaturedPlace(places);
 }
 
-function includeSelectedPlace(displayPlaces, selectedPlace) {
-  if (!selectedPlace || displayPlaces.some((place) => place.id === selectedPlace.id)) {
-    return displayPlaces;
-  }
-
-  return [selectedPlace, ...displayPlaces];
-}
-
 function withDisplayMeta(place) {
   if (!place) {
     return null;
   }
-  const meta = getPlaceVisualMeta(place.category);
-  const displayHours = place.name === '思南书局' ? '10:00-21:00　营业中' : (place.hours || '以现场公示为准');
-
   return {
     ...place,
-    categoryColor: meta.color,
-    categoryShortName: meta.shortName,
-    mapCardAvatarPath: meta.mapCardAvatarPath,
-    displayHours
+    displayAddress: getPlaceDisplayAddress(place),
+    displayHours: getPlaceDisplayHours(place),
+    navigationLabel: getPlaceNavigationLabel(place)
   };
-}
-
-function drawMapDotIcon(color) {
-  if (!wx.createOffscreenCanvas || !wx.canvasToTempFilePath) {
-    return Promise.reject(new Error('canvas api unavailable'));
-  }
-
-  const canvas = wx.createOffscreenCanvas({
-    type: '2d',
-    width: MAP_DOT_CANVAS_SIZE,
-    height: MAP_DOT_CANVAS_SIZE
-  });
-  const context = canvas.getContext('2d');
-  const center = MAP_DOT_CANVAS_SIZE / 2;
-
-  context.clearRect(0, 0, MAP_DOT_CANVAS_SIZE, MAP_DOT_CANVAS_SIZE);
-  context.beginPath();
-  context.arc(center, center, 17, 0, Math.PI * 2);
-  context.fillStyle = color;
-  context.fill();
-  context.lineWidth = 6;
-  context.strokeStyle = '#ffffff';
-  context.stroke();
-
-  return new Promise((resolve, reject) => {
-    wx.canvasToTempFilePath({
-      canvas,
-      width: MAP_DOT_CANVAS_SIZE,
-      height: MAP_DOT_CANVAS_SIZE,
-      destWidth: MAP_DOT_CANVAS_SIZE,
-      destHeight: MAP_DOT_CANVAS_SIZE,
-      fileType: 'png',
-      success: (res) => resolve(res.tempFilePath),
-      fail: reject
-    });
-  });
 }
 
 function drawUserLocationIcon() {
@@ -180,78 +141,31 @@ function drawUserLocationIcon() {
   });
 }
 
-function drawSelectedLabelIcon(text) {
-  if (!wx.createOffscreenCanvas || !wx.canvasToTempFilePath) {
-    return Promise.reject(new Error('canvas api unavailable'));
-  }
-
-  const content = String(text || '');
-  const width = Math.max(96, content.length * SELECTED_LABEL_FONT_SIZE + SELECTED_LABEL_PADDING_X * 2);
-  const height = SELECTED_LABEL_HEIGHT;
-  const canvas = wx.createOffscreenCanvas({
-    type: '2d',
-    width,
-    height
-  });
-  const context = canvas.getContext('2d');
-
-  context.clearRect(0, 0, width, height);
-  context.font = `300 ${SELECTED_LABEL_FONT_SIZE}px sans-serif`;
-  context.textAlign = 'center';
-  context.textBaseline = 'middle';
-  context.shadowColor = 'rgba(0, 0, 0, 1)';
-  context.shadowBlur = 28;
-  context.shadowOffsetX = 0;
-  context.shadowOffsetY = 5;
-  context.fillStyle = '#F4EAD8';
-  context.fillText(content, width / 2, height / 2);
-  context.shadowBlur = 0;
-  context.shadowOffsetY = 0;
-
-  return new Promise((resolve, reject) => {
-    wx.canvasToTempFilePath({
-      canvas,
-      width,
-      height,
-      destWidth: width,
-      destHeight: height,
-      fileType: 'png',
-      success: (res) => resolve({
-        placeId: '',
-        path: res.tempFilePath,
-        width,
-        height
-      }),
-      fail: reject
-    });
-  });
-}
-
 Page({
   data: {
     latitude: SHANGHAI_CENTER_LOCATION.latitude,
     longitude: SHANGHAI_CENTER_LOCATION.longitude,
-    scale: 11,
-    mapStyle: MAP_STYLE_CONFIG,
-    mapScrimPolygons: MAP_SCRIM_POLYGONS,
+    scale: 13,
     navMetrics: getPageNavMetrics(),
     categoryTabs: createCategoryTabs('全部'),
     activeFilter: '全部',
     activeCategories: CATEGORY_OPTIONS,
     places: [],
     displayPlaces: [],
+    markerPlaceIds: [],
     markers: [],
     mapDotIconPaths: {},
+    selectedMapDotIconPaths: {},
     userLocationIconPath: '',
-    selectedLabelIcon: null,
     selectedPlace: null,
-    favoritePlaceIds: [],
+    selectedPlaceIndex: 0,
     userLocation: null,
     initialSelectionLocation: SHANGHAI_CENTER_LOCATION,
     iconsReady: false,
     loading: true,
     loadError: '',
     noResultsInView: false,
+    cardSwipeDuration: CARD_SWIPE_DURATION_MS,
     visibleBounds: null
   },
 
@@ -268,26 +182,60 @@ Page({
   },
 
   onShow() {
-    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
-      this.getTabBar().setData({ selected: 0 });
-    }
-
-    const favoritePlaceIds = getLocalFavoriteIds();
-    this.setData({
-      favoritePlaceIds,
-      selectedPlace: this.withFavoriteState(this.data.selectedPlace, favoritePlaceIds)
-    });
-
-    loadFavoriteIds().then((syncedIds) => {
-      this.setData({
-        favoritePlaceIds: syncedIds,
-        selectedPlace: this.withFavoriteState(this.data.selectedPlace, syncedIds)
-      });
-    });
-
+    this.startSelectedMarkerBreathing();
     if (!this.data.places.length && this.data.iconsReady) {
       this.refreshFromCache();
     }
+  },
+
+  onHide() {
+    this.stopSelectedMarkerBreathing();
+  },
+
+  onUnload() {
+    this.stopSelectedMarkerBreathing();
+  },
+
+  startSelectedMarkerBreathing() {
+    this.stopSelectedMarkerBreathing();
+    this.selectedMarkerBreathStartedAt = Date.now();
+    this.selectedMarkerBreathTimer = setInterval(() => {
+      const selectedPlaceId = this.data.selectedPlace && this.data.selectedPlace.id;
+      if (!selectedPlaceId) {
+        return;
+      }
+
+      const markerIndex = this.data.markers.findIndex((marker) => marker.placeId === selectedPlaceId);
+      if (markerIndex < 0) {
+        return;
+      }
+
+      const elapsed = Date.now() - this.selectedMarkerBreathStartedAt;
+      const progress = (elapsed % SELECTED_MARKER_BREATH_CYCLE_MS) / SELECTED_MARKER_BREATH_CYCLE_MS;
+      const intensity = (1 - Math.cos(progress * Math.PI * 2)) / 2;
+      const size = Math.round(
+        SELECTED_MARKER_MIN_SIZE
+        + ((SELECTED_MARKER_MAX_SIZE - SELECTED_MARKER_MIN_SIZE) * intensity)
+      );
+      if (this.selectedMarkerBreathSize === size) {
+        return;
+      }
+      this.selectedMarkerBreathSize = size;
+
+      const markerPath = `markers[${markerIndex}]`;
+      this.setData({
+        [`${markerPath}.width`]: size,
+        [`${markerPath}.height`]: size
+      });
+    }, SELECTED_MARKER_BREATH_INTERVAL_MS);
+  },
+
+  stopSelectedMarkerBreathing() {
+    if (this.selectedMarkerBreathTimer) {
+      clearInterval(this.selectedMarkerBreathTimer);
+      this.selectedMarkerBreathTimer = null;
+    }
+    this.selectedMarkerBreathSize = null;
   },
 
   resolveInitialSelectionLocation() {
@@ -329,10 +277,10 @@ Page({
         data: {},
         success: (res) => {
           const cloudPlaces = res.result && Array.isArray(res.result.data) ? res.result.data : [];
-          this.applyPlaces(cloudPlaces.length ? cloudPlaces : SAMPLE_PLACES);
+          this.applyPlaces(cloudPlaces, cloudPlaces.length ? '' : '后台暂无已发布地点');
         },
         fail: () => {
-          this.applyPlaces(SAMPLE_PLACES, '已显示本地地点');
+          this.applyPlaces([], '地点加载失败，请稍后重试');
         },
         complete: () => {
           this.setData({ loading: false });
@@ -341,12 +289,12 @@ Page({
       return;
     }
 
-    this.applyPlaces(SAMPLE_PLACES);
+    this.applyPlaces([], '当前环境无法连接地点后台');
     this.setData({ loading: false });
   },
 
   applyPlaces(rawPlaces, loadError) {
-    const places = rawPlaces.map(normalizePlace);
+    const places = rawPlaces.map(normalizePlace).filter((place) => !isExcludedPlaceType(place));
     const selectedPlace = getNearestPlace(places, this.data.initialSelectionLocation);
 
     wx.setStorageSync('places', places);
@@ -354,19 +302,17 @@ Page({
       places,
       latitude: selectedPlace ? selectedPlace.latitude : this.data.latitude,
       longitude: selectedPlace ? selectedPlace.longitude : this.data.longitude,
-      selectedPlace: this.withFavoriteState(selectedPlace),
+      selectedPlace: this.withDisplayState(selectedPlace),
       loadError: loadError || ''
     }, () => {
       this.updateVisibleMarkers();
-      this.prepareSelectedLabelIcon(selectedPlace);
     });
   },
 
-  withFavoriteState(place, favoritePlaceIds, userLocation) {
+  withDisplayState(place, userLocation) {
     if (!place) {
       return null;
     }
-    const ids = favoritePlaceIds || this.data.favoritePlaceIds;
     const displayPlace = withDisplayMeta(place);
     const currentLocation = userLocation || this.data.userLocation;
     const distanceKm = currentLocation
@@ -375,15 +321,17 @@ Page({
 
     return {
       ...displayPlace,
-      distanceText: getDistanceText(distanceKm),
-      isFavorite: ids.indexOf(place.id) >= 0
+      distanceText: getDistanceText(distanceKm)
     };
   },
 
   prepareMapDotIcons() {
     const iconTasks = CATEGORY_OPTIONS.map((category) => {
       const meta = getPlaceVisualMeta(category);
-      return drawMapDotIcon(meta.mapMarkerColor).then((iconPath) => [category, iconPath]);
+      return Promise.all([
+        drawMapDotIcon(meta),
+        drawMapDotIcon(meta, true)
+      ]).then(([iconPath, selectedIconPath]) => [category, iconPath, selectedIconPath]);
     });
 
     return Promise.all(iconTasks).then((entries) => {
@@ -391,7 +339,12 @@ Page({
         paths[entry[0]] = entry[1];
         return paths;
       }, {});
-      this.setData({ mapDotIconPaths, iconsReady: true }, () => {
+      const selectedMapDotIconPaths = entries.reduce((paths, entry) => {
+        paths[entry[0]] = entry[2];
+        return paths;
+      }, {});
+      wx.setStorageSync('mapDotIconPaths', mapDotIconPaths);
+      this.setData({ mapDotIconPaths, selectedMapDotIconPaths, iconsReady: true }, () => {
         if (this.data.places.length) {
           this.updateVisibleMarkers();
         }
@@ -407,29 +360,13 @@ Page({
     });
   },
 
-  prepareSelectedLabelIcon(place) {
-    if (!place) {
-      this.setData({ selectedLabelIcon: null });
-      return Promise.resolve(null);
-    }
-
-    return drawSelectedLabelIcon(place.name).then((labelIcon) => {
-      const selectedLabelIcon = {
-        ...labelIcon,
-        placeId: place.id
-      };
-      this.setData({ selectedLabelIcon }, () => {
-        this.updateVisibleMarkers();
-      });
-      return selectedLabelIcon;
-    }).catch(() => null);
-  },
-
   createMarkers(displayPlaces) {
-    const markers = placesToMarkers(displayPlaces, {
+    const markerPlaceIds = new Set(this.data.markerPlaceIds);
+    const markerPlaces = displayPlaces.filter((place) => markerPlaceIds.has(place.id));
+    const markers = placesToMarkers(markerPlaces, {
       selectedPlaceId: this.data.selectedPlace && this.data.selectedPlace.id,
       mapDotIconPaths: this.data.mapDotIconPaths,
-      selectedLabelIcon: this.data.selectedLabelIcon,
+      selectedMapDotIconPaths: this.data.selectedMapDotIconPaths,
       allPlaceIds: this.data.places.map((place) => place.id)
     });
 
@@ -450,10 +387,17 @@ Page({
     return markers;
   },
 
+  syncMarkers(displayPlaces) {
+    this.setData({
+      markers: this.createMarkers(displayPlaces)
+    });
+  },
+
   toggleCategory(event) {
     const category = event.currentTarget.dataset.category;
     const activeCategories = getActiveCategoriesForFilter(category);
 
+    this.shouldAutoSelectVisiblePlace = true;
     this.setData({
       activeFilter: category,
       activeCategories,
@@ -470,15 +414,22 @@ Page({
       return;
     }
 
+    const selectedPlaceId = this.data.selectedPlace && this.data.selectedPlace.id;
+    if (marker.placeId === selectedPlaceId) {
+      this.ignoreNextMapTap = true;
+      return;
+    }
+
     const selectedPlace = this.data.displayPlaces.find((place) => place.id === marker.placeId);
     if (selectedPlace) {
+      const selectedPlaceIndex = this.data.displayPlaces.findIndex((place) => place.id === selectedPlace.id);
       this.ignoreNextMapTap = true;
       this.setData({
-        selectedPlace: this.withFavoriteState(selectedPlace),
-        selectedLabelIcon: null
+        selectedPlace: this.withDisplayState(selectedPlace),
+        selectedPlaceIndex
       }, () => {
-        this.setData({ markers: this.createMarkers(this.data.displayPlaces) });
-        this.prepareSelectedLabelIcon(selectedPlace);
+        this.syncMarkers(this.data.displayPlaces);
+        this.updateVisibleMarkers();
       });
     }
   },
@@ -490,15 +441,25 @@ Page({
     }
 
     if (this.data.selectedPlace) {
-      this.setData({
-        selectedPlace: null,
-        selectedLabelIcon: null
-      }, () => {
-        this.setData({
-          markers: this.createMarkers(this.data.displayPlaces)
-        });
+      this.setData({ selectedPlace: null }, () => {
+        this.updateVisibleMarkers();
       });
     }
+  },
+
+  onPlaceCardChange(event) {
+    const selectedPlaceIndex = Number(event.detail.current);
+    const selectedPlace = this.data.displayPlaces[selectedPlaceIndex];
+    if (!selectedPlace || (this.data.selectedPlace && selectedPlace.id === this.data.selectedPlace.id)) {
+      return;
+    }
+
+    this.setData({
+      selectedPlace: this.withDisplayState(selectedPlace),
+      selectedPlaceIndex
+    }, () => {
+      this.syncMarkers(this.data.displayPlaces);
+    });
   },
 
   onRegionChange(event) {
@@ -509,41 +470,63 @@ Page({
 
   updateVisibleMarkers() {
     const map = wx.createMapContext('studyMap');
+    const applyVisiblePlaces = (visiblePlaces, region) => {
+      const shouldAutoSelect = this.shouldAutoSelectVisiblePlace;
+      const unorderedDisplayPlaces = visiblePlaces.map((place) => this.withDisplayState(place));
+      const visibleSelectedPlace = this.data.selectedPlace
+        ? unorderedDisplayPlaces.find((place) => place.id === this.data.selectedPlace.id)
+        : null;
+      const coveredSelectedPlace = this.data.selectedPlace
+        && !visibleSelectedPlace
+        && isPlaceInBounds(this.data.selectedPlace, region)
+        ? this.withDisplayState(this.data.selectedPlace)
+        : null;
+      if (coveredSelectedPlace) {
+        unorderedDisplayPlaces.unshift(coveredSelectedPlace);
+      }
+      const selectedPlace = visibleSelectedPlace
+        || coveredSelectedPlace
+        || (shouldAutoSelect ? unorderedDisplayPlaces[0] : null);
+      const displayPlaces = orderPlacesByProximity(unorderedDisplayPlaces, selectedPlace);
+      const selectedPlaceIndex = selectedPlace
+        ? displayPlaces.findIndex((place) => place.id === selectedPlace.id)
+        : 0;
+
+      this.shouldAutoSelectVisiblePlace = false;
+      this.setData({
+        ...(region ? { visibleBounds: region } : {}),
+        displayPlaces,
+        markerPlaceIds: visiblePlaces.map((place) => place.id),
+        selectedPlace,
+        selectedPlaceIndex,
+        noResultsInView: !this.data.loading && this.data.places.length > 0 && visiblePlaces.length === 0
+      }, () => {
+        this.syncMarkers(displayPlaces);
+      });
+    };
     const applyRegion = (scale) => {
       map.getRegion({
         success: (region) => {
+          const cardWillShow = Boolean(this.data.selectedPlace || this.shouldAutoSelectVisiblePlace);
+          const occlusion = getMapVerticalOcclusionRatios(this.data.navMetrics, cardWillShow);
+          const markerBounds = getBoundsInsideVerticalOverlays(
+            region,
+            occlusion.top,
+            occlusion.bottom
+          );
           const visiblePlaces = getDisplayPlaces(this.data.places, {
             categories: this.data.activeCategories,
-            bounds: region,
+            bounds: markerBounds,
             scale
           });
-          const selectedPlace = this.data.selectedPlace;
-          const displayPlaces = includeSelectedPlace(visiblePlaces, selectedPlace);
-
-          const nextData = {
-            visibleBounds: region,
-            displayPlaces,
-            selectedPlace: this.withFavoriteState(selectedPlace),
-            noResultsInView: !this.data.loading && this.data.places.length > 0 && visiblePlaces.length === 0,
-            markers: this.createMarkers(displayPlaces)
-          };
-          this.setData(nextData);
+          applyVisiblePlaces(visiblePlaces, region);
         },
         fail: () => {
           const visiblePlaces = getDisplayPlaces(this.data.places, {
             categories: this.data.activeCategories,
             scale
           });
-          const selectedPlace = this.data.selectedPlace;
-          const displayPlaces = includeSelectedPlace(visiblePlaces, selectedPlace);
-
-          const nextData = {
-            displayPlaces,
-            selectedPlace: this.withFavoriteState(selectedPlace),
-            noResultsInView: !this.data.loading && this.data.places.length > 0 && visiblePlaces.length === 0,
-            markers: this.createMarkers(displayPlaces)
-          };
-          this.setData(nextData);
+          applyVisiblePlaces(visiblePlaces);
         }
       });
     };
@@ -586,20 +569,6 @@ Page({
       name: place.name,
       address: place.address,
       scale: 16
-    });
-  },
-
-  toggleFavorite(event) {
-    const placeId = event.currentTarget.dataset.id || (this.data.selectedPlace && this.data.selectedPlace.id);
-    if (!placeId) {
-      return;
-    }
-
-    toggleFavoriteId(placeId).then(({ favoriteIds }) => {
-      this.setData({
-        favoritePlaceIds: favoriteIds,
-        selectedPlace: this.withFavoriteState(this.data.selectedPlace, favoriteIds)
-      });
     });
   },
 
