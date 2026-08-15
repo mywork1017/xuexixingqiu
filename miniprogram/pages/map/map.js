@@ -606,7 +606,6 @@ Page({
             initialSelectionLocation: target,
             latitude: target.latitude,
             longitude: target.longitude,
-            scale: isShanghai ? 15 : 13,
             selectedPlace: null,
             noResultsInView: false,
             locating: false

@@ -53,7 +53,7 @@ test('匿名访客编号稳定且不暴露 openid', () => {
   assert.doesNotMatch(first.visitorId, /openid-123/);
 });
 
-test('定位按钮刷新实时位置且地图外空状态使用上海数据提示', () => {
+test('定位按钮只移动到实时位置且地图外空状态使用上海数据提示', () => {
   const mapJs = read('miniprogram/pages/map/map.js');
   const mapWxml = read('miniprogram/pages/map/map.wxml');
   const moveToLocation = mapJs.match(/moveToUserLocation\(\) \{([\s\S]*?)\n  \},\n\n  openLocation/);
@@ -61,7 +61,7 @@ test('定位按钮刷新实时位置且地图外空状态使用上海数据提�
   assert.match(moveToLocation[1], /wx\.getLocation/);
   assert.match(moveToLocation[1], /recordLocationVisit\(location, 'location_button'\)/);
   assert.match(moveToLocation[1], /isShanghai \? userLocation : SHANGHAI_CENTER_LOCATION/);
-  assert.doesNotMatch(moveToLocation[1], /latitude: SHANGHAI_CENTER_LOCATION\.latitude,\s*longitude: SHANGHAI_CENTER_LOCATION\.longitude,\s*scale: this\.data\.scale/);
+  assert.doesNotMatch(moveToLocation[1], /\bscale\s*:/);
   assert.match(mapJs, /目前只有上海的图书馆和食堂数据/);
   assert.match(mapWxml, /\{\{emptyStateText\}\}/);
 });
