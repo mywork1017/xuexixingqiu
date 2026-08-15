@@ -31,9 +31,40 @@ a {
   align-items: center;
   display: flex;
   gap: 1rem;
+  height: auto;
   justify-content: space-between;
+  min-height: 64px;
+  padding-block: 0.5rem;
   padding-inline: 1rem;
   position: relative;
+}
+
+.admin-branding,
+.admin-nav {
+  align-items: center;
+  display: flex;
+}
+
+.admin-branding {
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.admin-nav {
+  gap: 0.25rem;
+}
+
+.admin-nav a {
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 2.75rem;
+  padding: 0 0.75rem;
+  white-space: nowrap;
+}
+
+.admin-nav a[aria-current="page"] {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
 }
 
 .admin-logo {
@@ -154,6 +185,18 @@ a {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+}
+
+@media (max-width: 35rem) {
+  .admin-branding {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .admin-nav a {
+    padding-inline: 0.5rem;
+  }
 }
 
 @media (min-width: 64rem) {

@@ -18,6 +18,11 @@ const {
   placesToMarkers
 } = require('../../utils/place-utils');
 const { drawMapDotIcon } = require('../../utils/map-dot-icon');
+const {
+  SHANGHAI_CENTER_LOCATION,
+  isRegionOutsideShanghai,
+  isWithinShanghaiBounds
+} = require('../../utils/location-utils');
 
 const FEATURED_PLACE_NAME = '上海图书馆东馆';
 const USER_LOCATION_CANVAS_SIZE = 32;
@@ -28,10 +33,6 @@ const SELECTED_MARKER_MAX_SIZE = 47;
 const CARD_SWIPE_DURATION_MS = 200;
 const BOTTOM_SHEET_OCCLUDED_RPX = 342;
 const MARKER_EDGE_GUARD_PX = 28;
-const SHANGHAI_CENTER_LOCATION = {
-  latitude: 31.2304,
-  longitude: 121.4737
-};
 function createCategoryTabs(activeFilter) {
   return CATEGORY_FILTER_OPTIONS.map((category) => ({
     name: category,
@@ -165,6 +166,8 @@ Page({
     loading: true,
     loadError: '',
     noResultsInView: false,
+    emptyStateText: '附近没有结果',
+    locating: false,
     cardSwipeDuration: CARD_SWIPE_DURATION_MS,
     visibleBounds: null
   },
@@ -247,16 +250,50 @@ Page({
             latitude: location.latitude,
             longitude: location.longitude
           };
-          this.setData({
-            userLocation,
-            initialSelectionLocation: userLocation
-          }, resolve);
+          this.recordLocationVisit(location, 'page_open').then((visit) => {
+            const isShanghai = visit.isShanghai;
+            this.setData({
+              userLocation: isShanghai ? userLocation : null,
+              initialSelectionLocation: isShanghai ? userLocation : SHANGHAI_CENTER_LOCATION
+            }, resolve);
+          });
         },
         fail: () => {
           this.setData({
+            userLocation: null,
             initialSelectionLocation: SHANGHAI_CENTER_LOCATION
           }, resolve);
         }
+      });
+    });
+  },
+
+  recordLocationVisit(location, source) {
+    const fallback = {
+      isShanghai: isWithinShanghaiBounds(location),
+      city: isWithinShanghaiBounds(location) ? '上海市' : '',
+      district: ''
+    };
+    if (!wx.cloud) return Promise.resolve(fallback);
+
+    return new Promise((resolve) => {
+      wx.cloud.callFunction({
+        name: 'recordVisit',
+        data: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          accuracy: location.accuracy,
+          source
+        },
+        success: (res) => {
+          const result = res.result || {};
+          resolve(result.ok ? {
+            isShanghai: Boolean(result.isShanghai),
+            city: result.city || '',
+            district: result.district || ''
+          } : fallback);
+        },
+        fail: () => resolve(fallback)
       });
     });
   },
@@ -499,7 +536,10 @@ Page({
         markerPlaceIds: visiblePlaces.map((place) => place.id),
         selectedPlace,
         selectedPlaceIndex,
-        noResultsInView: !this.data.loading && this.data.places.length > 0 && visiblePlaces.length === 0
+        noResultsInView: !this.data.loading && this.data.places.length > 0 && visiblePlaces.length === 0,
+        emptyStateText: isRegionOutsideShanghai(region)
+          ? '目前只有上海的图书馆和食堂数据'
+          : '附近没有结果'
       }, () => {
         this.syncMarkers(displayPlaces);
       });
@@ -547,12 +587,60 @@ Page({
   },
 
   moveToUserLocation() {
-    this.setData({
-      latitude: SHANGHAI_CENTER_LOCATION.latitude,
-      longitude: SHANGHAI_CENTER_LOCATION.longitude,
-      scale: this.data.scale
-    }, () => {
-      this.updateVisibleMarkers();
+    if (this.data.locating) return;
+    this.setData({ locating: true });
+    wx.showLoading({ title: '定位中' });
+    wx.getLocation({
+      type: 'gcj02',
+      success: (location) => {
+        this.recordLocationVisit(location, 'location_button').then((visit) => {
+          wx.hideLoading();
+          const isShanghai = visit.isShanghai;
+          const userLocation = {
+            latitude: location.latitude,
+            longitude: location.longitude
+          };
+          const target = isShanghai ? userLocation : SHANGHAI_CENTER_LOCATION;
+          this.setData({
+            userLocation: isShanghai ? userLocation : null,
+            initialSelectionLocation: target,
+            latitude: target.latitude,
+            longitude: target.longitude,
+            scale: isShanghai ? 15 : 13,
+            selectedPlace: null,
+            noResultsInView: false,
+            locating: false
+          }, () => {
+            this.updateVisibleMarkers();
+            if (!isShanghai) {
+              wx.showToast({
+                title: '当前不在上海，已返回上海市中心',
+                icon: 'none'
+              });
+            }
+          });
+        });
+      },
+      fail: () => {
+        wx.hideLoading();
+        this.setData({ locating: false });
+        wx.showModal({
+          title: '需要定位权限',
+          content: '请在设置中允许使用位置，以便回到你当前所在的位置。',
+          confirmText: '去设置',
+          success: (res) => {
+            if (res.confirm) {
+              wx.openSetting({
+                success: (settings) => {
+                  if (settings.authSetting['scope.userLocation']) {
+                    this.moveToUserLocation();
+                  }
+                }
+              });
+            }
+          }
+        });
+      }
     });
   },
 

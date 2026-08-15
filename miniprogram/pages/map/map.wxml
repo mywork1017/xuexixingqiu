@@ -35,6 +35,7 @@
           >
             <text wx:if="{{item.name !== '全部'}}" class="category-dot {{item.markerStyle}}"></text>
             <text>{{item.name}}</text>
+            <view wx:if="{{item.active}}" class="category-indicator"></view>
           </button>
         </block>
       </view>
@@ -42,7 +43,7 @@
   </view>
 
   <view class="load-tip" wx:if="{{loadError}}">{{loadError}}</view>
-  <view class="empty-tip" wx:if="{{noResultsInView}}">附近没有结果</view>
+  <view class="empty-tip" wx:if="{{noResultsInView}}">{{emptyStateText}}</view>
 
   <view class="map-actions {{selectedPlace ? 'with-sheet' : ''}}">
     <view class="location-button" aria-label="定位" bindtap="moveToUserLocation">

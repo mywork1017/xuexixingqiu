@@ -2,6 +2,7 @@
 
 import { LogoutOutlined } from '@ant-design/icons';
 import { Button, Flex, Layout, Space, Typography } from 'antd';
+import { usePathname } from 'next/navigation';
 import { logout } from '@/app/login/actions';
 
 const { Header, Content } = Layout;
@@ -17,10 +18,17 @@ export function AdminPage({
   actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   return (
     <Layout className="admin-layout">
       <Header className="admin-header">
-        <a className="admin-logo" href="/places">上海学习地图</a>
+        <div className="admin-branding">
+          <a className="admin-logo" href="/places">上海学习地图</a>
+          <nav className="admin-nav" aria-label="后台功能">
+            <a aria-current={pathname.startsWith('/places') ? 'page' : undefined} href="/places">地点管理</a>
+            <a aria-current={pathname.startsWith('/visits') ? 'page' : undefined} href="/visits">访问记录</a>
+          </nav>
+        </div>
         <form action={logout} className="admin-logout">
           <Button htmlType="submit" icon={<LogoutOutlined />}>退出登录</Button>
         </form>

@@ -34,6 +34,9 @@ CLOUDBASE_ENV_ID="云开发环境 ID"
 TENCENTCLOUD_SECRET_ID="腾讯云 SecretId"
 TENCENTCLOUD_SECRET_KEY="腾讯云 SecretKey"
 CLOUDBASE_COLLECTION="places"
+CLOUDBASE_VISIT_COLLECTION="visitLogs"
 ```
 
 密钥只配置在服务器环境变量中，不写入浏览器或数据库。点击“推送到小程序”后，小程序线上版继续通过 `getPlaces` 云函数读取这些数据。
+
+访问记录页从云数据库 `visitLogs` 集合读取最近 500 条定位记录。`recordVisit` 云函数还需配置已开启 WebServiceAPI 的腾讯位置服务 `TENCENT_MAP_KEY`，用于把用户授权后的坐标解析到区县；云数据库只保存区县、匿名访客编号、定位精度和云端时间。

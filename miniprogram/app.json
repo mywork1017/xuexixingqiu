@@ -12,7 +12,7 @@
   },
   "permission": {
     "scope.userLocation": {
-      "desc": "用于在地图中显示你的位置，并计算附近学习地点"
+      "desc": "用于在地图中显示你的位置、计算附近地点并记录访问区县"
     }
   },
   "requiredPrivateInfos": [

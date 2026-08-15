@@ -1,0 +1,14 @@
+{
+  "collection": "visitLogs",
+  "description": "用户主动授权定位后生成的匿名访问记录",
+  "fields": {
+    "visitorId": "匿名访客哈希",
+    "visitorCode": "后台展示用访客编号",
+    "city": "定位解析城市",
+    "district": "定位解析区县",
+    "isShanghai": "是否位于上海",
+    "accuracy": "定位精度（米）",
+    "source": "page_open 或 location_button",
+    "createdAt": "云端记录时间"
+  }
+}

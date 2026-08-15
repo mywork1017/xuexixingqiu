@@ -8,8 +8,10 @@
 2. 项目目录选择本仓库的 `miniprogram/` 目录；AppID 已写入该目录的 `project.config.json`。
 3. 开通云开发环境，确认 `project.config.json` 中 `cloudfunctionRoot` 为 `cloudfunctions/`。
 4. 创建云数据库集合 `places`，读取权限可按 `database/places.permissions.json` 设置为所有用户可读。
-5. 右键 `cloudfunctions/getPlaces`，选择“上传并部署：云端安装依赖”。
-6. 编译预览。云数据为空或云函数不可用时，页面会显示本地内置地点。
+5. 创建云数据库集合 `visitLogs`，权限按 `database/visitLogs.permissions.json` 设置为客户端不可读写。
+6. 右键 `cloudfunctions/getPlaces` 和 `cloudfunctions/recordVisit`，分别选择“上传并部署：云端安装依赖”。
+7. 在腾讯位置服务控制台创建或选择已开启 WebServiceAPI 的 Key，为 `recordVisit` 云函数配置 `TENCENT_MAP_KEY` 环境变量，用于把授权坐标解析到上海区县。
+8. 编译预览。云数据为空或云函数不可用时，页面会显示对应错误状态。
 
 ## 地点数据
 
@@ -43,6 +45,9 @@
 - `miniprogram/pages/detail`：地点详情页，展示地址、开放信息、简介、照片并支持微信导航。
 - `miniprogram/utils/place-utils.js`：地点归一化、筛选和 marker 转换。
 - `cloudfunctions/getPlaces`：读取 `places` 集合的云函数。
+- `cloudfunctions/recordVisit`：记录匿名访客、定位区县、精度和访问时间的云函数。
+
+启用定位访问记录前，还需在微信公众平台的用户隐私保护指引中声明：定位信息会用于地图定位、附近地点计算和匿名区县访问统计。
 
 ## 本地验证
 
