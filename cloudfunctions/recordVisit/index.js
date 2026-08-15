@@ -35,17 +35,33 @@ function requestJson(url) {
 
 async function reverseGeocode(latitude, longitude) {
   const key = process.env.TENCENT_MAP_KEY || '';
-  if (!key) return parseReverseGeocode(null, latitude, longitude);
+  if (!key) {
+    return {
+      ...parseReverseGeocode(null, latitude, longitude),
+      geocodeStatus: 'missing-key',
+      geocodeMessage: ''
+    };
+  }
 
   const url = new URL('https://apis.map.qq.com/ws/geocoder/v1/');
   url.searchParams.set('location', `${latitude},${longitude}`);
   url.searchParams.set('key', key);
-  url.searchParams.set('get_poi', '0');
+  url.searchParams.set('get_poi', '1');
+  url.searchParams.set('poi_options', 'address_format=short;radius=500;policy=1;orderby=_distance');
   try {
-    return parseReverseGeocode(await requestJson(url), latitude, longitude);
+    const payload = await requestJson(url);
+    return {
+      ...parseReverseGeocode(payload, latitude, longitude),
+      geocodeStatus: payload && payload.status,
+      geocodeMessage: String((payload && payload.message) || '')
+    };
   } catch (error) {
     console.error('reverse geocode failed', error);
-    return parseReverseGeocode(null, latitude, longitude);
+    return {
+      ...parseReverseGeocode(null, latitude, longitude),
+      geocodeStatus: 'request-failed',
+      geocodeMessage: error.message
+    };
   }
 }
 
@@ -66,8 +82,14 @@ exports.main = async (event = {}) => {
     data: {
       visitorId: identity.visitorId,
       visitorCode: identity.visitorCode,
+      nation: location.nation,
+      province: location.province,
       city: location.city,
       district: location.district,
+      street: location.street,
+      placeName: location.placeName,
+      address: location.address,
+      locationLevel: location.locationLevel,
       isShanghai: location.isShanghai,
       accuracy: Number.isFinite(accuracy) ? Math.round(accuracy) : null,
       source,
@@ -78,8 +100,16 @@ exports.main = async (event = {}) => {
   return {
     ok: true,
     visitorCode: identity.visitorCode,
+    nation: location.nation,
+    province: location.province,
     city: location.city,
     district: location.district,
-    isShanghai: location.isShanghai
+    street: location.street,
+    placeName: location.placeName,
+    address: location.address,
+    locationLevel: location.locationLevel,
+    isShanghai: location.isShanghai,
+    geocodeStatus: location.geocodeStatus,
+    geocodeMessage: location.geocodeMessage
   };
 };

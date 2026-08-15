@@ -24,17 +24,58 @@ function createVisitorIdentity(openid, appid) {
   };
 }
 
+function stringValue(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function selectNearbyPlace(pois) {
+  if (!Array.isArray(pois)) return '';
+  const normalized = pois.map((poi) => ({
+    title: stringValue(poi && poi.title),
+    category: stringValue(poi && poi.category),
+    distance: Number(poi && poi._distance)
+  })).filter((poi) => poi.title && Number.isFinite(poi.distance));
+  const residential = normalized.find((poi) => poi.distance <= 200
+    && /小区|住宅|社区|公寓|家园|花园/.test(`${poi.title}${poi.category}`));
+  if (residential) return residential.title;
+  const nearest = normalized.find((poi) => poi.distance <= 80);
+  return nearest ? nearest.title : '';
+}
+
 function parseReverseGeocode(payload, latitude, longitude) {
-  const address = payload && payload.status === 0 && payload.result
-    ? payload.result.ad_info || {}
+  const result = payload && payload.status === 0 && payload.result
+    ? payload.result
     : {};
-  const city = String(address.city || '');
-  const district = String(address.district || '');
+  const adInfo = result.ad_info || {};
+  const component = result.address_component || {};
+  const formatted = result.formatted_addresses || {};
+  const nation = stringValue(adInfo.nation || component.nation);
+  const province = stringValue(adInfo.province || component.province);
+  const city = stringValue(adInfo.city || component.city || province);
+  const district = stringValue(adInfo.district || component.district);
+  const street = stringValue(component.street_number || component.street);
+  const placeName = selectNearbyPlace(result.pois);
+  const address = stringValue(formatted.standard_address || formatted.recommend || result.address);
   const isShanghai = city === '上海市'
     || (!city && isWithinShanghaiBounds(latitude, longitude));
+  const locationLevel = placeName
+    ? 'place'
+    : street
+      ? 'street'
+      : district
+        ? 'district'
+        : city
+          ? 'city'
+          : 'unknown';
   return {
+    nation,
+    province,
     city: city || (isShanghai ? '上海市' : ''),
     district,
+    street,
+    placeName,
+    address,
+    locationLevel,
     isShanghai
   };
 }

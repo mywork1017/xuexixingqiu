@@ -30,19 +30,37 @@ test('上海内外坐标和地图中心按产品范围识别', () => {
   }), true);
 });
 
-test('腾讯逆地址结果提取上海区县并覆盖边界框回退', () => {
+test('腾讯逆地址结果按小区地标、街道、区县和城市提取', () => {
   assert.deepEqual(parseReverseGeocode({
     status: 0,
-    result: { ad_info: { city: '上海市', district: '浦东新区' } }
+    result: {
+      ad_info: { nation: '中国', province: '上海市', city: '上海市', district: '浦东新区' },
+      address_component: { street: '世纪大道', street_number: '世纪大道100号' },
+      formatted_addresses: { standard_address: '上海市浦东新区世纪大道100号' },
+      pois: [{ title: '上海环球金融中心', category: '房产小区:商务楼宇', _distance: 15 }]
+    }
   }, 31.22, 121.55), {
+    nation: '中国',
+    province: '上海市',
     city: '上海市',
     district: '浦东新区',
+    street: '世纪大道100号',
+    placeName: '上海环球金融中心',
+    address: '上海市浦东新区世纪大道100号',
+    locationLevel: 'place',
     isShanghai: true
   });
-  assert.equal(parseReverseGeocode({
+  const outsideShanghai = parseReverseGeocode({
     status: 0,
-    result: { ad_info: { city: '苏州市', district: '昆山市' } }
-  }, 31.3, 121.0).isShanghai, false);
+    result: {
+      ad_info: { nation: '中国', province: '北京市', city: '北京市', district: '朝阳区' },
+      address_component: { street: '建国路' }
+    }
+  }, 39.9, 116.4);
+  assert.equal(outsideShanghai.city, '北京市');
+  assert.equal(outsideShanghai.district, '朝阳区');
+  assert.equal(outsideShanghai.locationLevel, 'street');
+  assert.equal(outsideShanghai.isShanghai, false);
 });
 
 test('匿名访客编号稳定且不暴露 openid', () => {
@@ -56,14 +74,31 @@ test('匿名访客编号稳定且不暴露 openid', () => {
 test('定位按钮只移动到实时位置且地图外空状态使用上海数据提示', () => {
   const mapJs = read('miniprogram/pages/map/map.js');
   const mapWxml = read('miniprogram/pages/map/map.wxml');
-  const moveToLocation = mapJs.match(/moveToUserLocation\(\) \{([\s\S]*?)\n  \},\n\n  openLocation/);
+  const appConfig = JSON.parse(read('miniprogram/app.json'));
+  const moveToLocation = mapJs.match(/moveToUserLocation\(\) \{([\s\S]*?)\n  \},\n\n  goToShanghaiCenter/);
   assert.ok(moveToLocation);
-  assert.match(moveToLocation[1], /wx\.getLocation/);
+  assert.match(moveToLocation[1], /this\.getAuthorizedUserLocation\(\)/);
   assert.match(moveToLocation[1], /recordLocationVisit\(location, 'location_button'\)/);
-  assert.match(moveToLocation[1], /isShanghai \? userLocation : SHANGHAI_CENTER_LOCATION/);
+  assert.match(moveToLocation[1], /userLocation,\s*initialSelectionLocation: userLocation/);
+  assert.match(moveToLocation[1], /latitude: userLocation\.latitude,\s*longitude: userLocation\.longitude/);
+  assert.doesNotMatch(moveToLocation[1], /isShanghai|SHANGHAI_CENTER_LOCATION|当前不在上海/);
+  assert.match(moveToLocation[1], /this\.queueUserLocationDrop\(\)/);
+  assert.doesNotMatch(moveToLocation[1], /wx\.(?:showLoading|hideLoading)/);
   assert.doesNotMatch(moveToLocation[1], /\bscale\s*:/);
   assert.match(mapJs, /目前只有上海的图书馆和食堂数据/);
-  assert.match(mapWxml, /\{\{emptyStateText\}\}/);
+  assert.match(mapWxml, /\{\{emptyStateText\}\}[\s\S]*catchtap="goToShanghaiCenter"[\s\S]*去看看/);
+  assert.match(mapJs, /resolveInitialSelectionLocation\(\)[\s\S]*userLocation,[\s\S]*latitude: userLocation\.latitude,[\s\S]*longitude: userLocation\.longitude/);
+  const goToShanghai = mapJs.match(/goToShanghaiCenter\(\) \{([\s\S]*?)\n  \},\n\n  openLocation/);
+  assert.ok(goToShanghai);
+  assert.match(goToShanghai[1], /latitude: SHANGHAI_CENTER_LOCATION\.latitude/);
+  assert.match(goToShanghai[1], /longitude: SHANGHAI_CENTER_LOCATION\.longitude/);
+  assert.doesNotMatch(goToShanghai[1], /userLocation\s*:|\bscale\s*:/);
+  assert.match(mapJs, /requestAuthorizedLocation\('scope\.userLocation', 'getLocation'\)/);
+  assert.match(mapJs, /wx\.getSetting/);
+  assert.match(mapJs, /wx\.authorize/);
+  assert.doesNotMatch(mapJs, /getFuzzyLocation|scope\.userFuzzyLocation/);
+  assert.deepEqual(appConfig.requiredPrivateInfos, ['getLocation']);
+  assert.equal(appConfig.permission['scope.userFuzzyLocation'], undefined);
 });
 
 test('访问记录云函数和后台页面只保存展示所需定位字段', () => {
@@ -71,9 +106,17 @@ test('访问记录云函数和后台页面只保存展示所需定位字段', ()
   const adminPage = read('admin/app/visits/visits-page-view.tsx');
   assert.match(cloudFunction, /visitorCode: identity\.visitorCode/);
   assert.match(cloudFunction, /district: location\.district/);
+  assert.match(cloudFunction, /placeName: location\.placeName/);
+  assert.match(cloudFunction, /street: location\.street/);
   assert.match(cloudFunction, /createdAt: db\.serverDate\(\)/);
   assert.doesNotMatch(cloudFunction, /data:\s*\{[\s\S]*?latitude,[\s\S]*?longitude,[\s\S]*?createdAt:/);
   assert.match(adminPage, /访问时间/);
   assert.match(adminPage, /访客/);
   assert.match(adminPage, /区县/);
+  assert.match(adminPage, /小区\/地标/);
+  assert.match(adminPage, /街道/);
+  assert.match(adminPage, /搜索访客、城市、区县、小区或街道/);
+  assert.match(adminPage, /全部地点/);
+  assert.match(adminPage, /全部访客/);
+  assert.match(adminPage, /DatePicker\.RangePicker/);
 });

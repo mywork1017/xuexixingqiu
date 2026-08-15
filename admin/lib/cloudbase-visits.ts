@@ -4,8 +4,14 @@ import { getCloudBaseConfig } from '@/lib/cloudbase-sync';
 export type VisitRow = {
   id: string;
   visitorCode: string;
+  nation: string;
+  province: string;
   city: string;
   district: string;
+  street: string;
+  placeName: string;
+  address: string;
+  locationLevel: 'place' | 'street' | 'district' | 'city' | 'unknown';
   accuracy: number | null;
   source: 'page_open' | 'location_button';
   createdAt: string;
@@ -48,8 +54,16 @@ export async function getRecentVisits(): Promise<VisitQueryResult> {
     const rows = result.data.map((item) => ({
       id: String(item._id || ''),
       visitorCode: String(item.visitorCode || ''),
+      nation: String(item.nation || ''),
+      province: String(item.province || ''),
       city: String(item.city || ''),
       district: String(item.district || ''),
+      street: String(item.street || ''),
+      placeName: String(item.placeName || ''),
+      address: String(item.address || ''),
+      locationLevel: ['place', 'street', 'district', 'city'].includes(item.locationLevel)
+        ? item.locationLevel
+        : 'unknown',
       accuracy: Number.isFinite(Number(item.accuracy)) ? Number(item.accuracy) : null,
       source: item.source === 'location_button' ? 'location_button' as const : 'page_open' as const,
       createdAt: toIsoString(item.createdAt)

@@ -90,7 +90,123 @@ test('selected map dot stays enlarged, breathes without alpha flicker, and remai
   assert.match(mapJs, /syncMarkers\(displayPlaces\) \{\s*this\.setData\(\{\s*markers: this\.createMarkers\(displayPlaces\)/);
   assert.match(mapJs, /onHide\(\) \{[\s\S]*stopSelectedMarkerBreathing\(\)/);
   assert.match(mapJs, /onUnload\(\) \{[\s\S]*stopSelectedMarkerBreathing\(\)/);
-  assert.match(mapWxss, /\.empty-tip \{[^}]*top: 50%;[^}]*translate\(-50%, -50%\)/);
+  assert.match(mapWxss, /\.empty-tip \{[^}]*top: calc\(50% - 240rpx\);[^}]*translate\(-50%, -50%\)/);
+  assert.match(mapWxss, /\.empty-tip-text \{[^}]*flex: 0 0 auto;[^}]*white-space: nowrap/);
+  assert.match(mapWxss, /\.empty-tip-link \{[^}]*min-height: 80rpx;[^}]*text-decoration: underline/);
+  assert.match(mapWxss, /\.empty-tip-link \{[^}]*display: inline-flex;[^}]*width: auto/);
+});
+
+test('user location uses a full-body black figure with a staged drop and rebound', () => {
+  const mapJs = fs.readFileSync(path.join(ROOT_DIR, 'miniprogram/pages/map/map.js'), 'utf8');
+  const mapWxml = fs.readFileSync(path.join(ROOT_DIR, 'miniprogram/pages/map/map.wxml'), 'utf8');
+  const mapWxss = fs.readFileSync(path.join(ROOT_DIR, 'miniprogram/pages/map/map.wxss'), 'utf8');
+  const placeUtilsJs = fs.readFileSync(path.join(ROOT_DIR, 'miniprogram/utils/place-utils.js'), 'utf8');
+  const iconJs = fs.readFileSync(path.join(ROOT_DIR, 'miniprogram/utils/user-location-icon.js'), 'utf8');
+  const {
+    USER_LOCATION_DROP_FRAMES,
+    USER_LOCATION_ICON_CANVAS_HEIGHT,
+    USER_LOCATION_ICON_FOOT_Y,
+    USER_LOCATION_ICON_ANCHOR_Y,
+    interpolateUserLocationFrame
+  } = require('../miniprogram/utils/user-location-icon');
+  const totalDuration = USER_LOCATION_DROP_FRAMES.reduce((sum, frame) => sum + frame.duration, 0);
+
+  assert.equal(USER_LOCATION_DROP_FRAMES.length, 20);
+  assert.ok(USER_LOCATION_DROP_FRAMES[0].offsetY <= -80);
+  assert.equal(USER_LOCATION_DROP_FRAMES[0].alpha, 0);
+  assert.ok(USER_LOCATION_DROP_FRAMES.slice(1, 6).every((frame, index, frames) => (
+    frame.alpha > (index === 0 ? 0 : frames[index - 1].alpha)
+  )));
+  assert.ok(USER_LOCATION_DROP_FRAMES.some((frame) => frame.scaleY < 0.85));
+  assert.ok(USER_LOCATION_DROP_FRAMES.some((frame) => frame.offsetY < 0 && frame.scaleY > 1.1));
+  assert.ok(USER_LOCATION_DROP_FRAMES.slice(0, 8).every((frame) => (
+    frame.leftArmRaise > frame.rightArmRaise
+      && frame.leftKneeBend > frame.rightKneeBend
+      && frame.leftLegTuck > frame.rightLegTuck
+  )));
+  assert.deepEqual(USER_LOCATION_DROP_FRAMES[USER_LOCATION_DROP_FRAMES.length - 1], {
+    offsetY: 0,
+    rotation: 0,
+    scaleX: 1,
+    scaleY: 1,
+    alpha: 1,
+    armRaise: 0,
+    shadowScale: 1,
+    duration: 0
+  });
+  assert.ok(totalDuration >= 850 && totalDuration <= 1000);
+  assert.equal(USER_LOCATION_ICON_CANVAS_HEIGHT, 176);
+  assert.equal(USER_LOCATION_ICON_FOOT_Y, 156);
+  assert.ok(USER_LOCATION_ICON_FOOT_Y + USER_LOCATION_DROP_FRAMES[0].offsetY - 64 >= 0);
+  assert.ok(USER_LOCATION_ICON_ANCHOR_Y > 0.85 && USER_LOCATION_ICON_ANCHOR_Y < 0.9);
+  assert.match(iconJs, /fillStyle = '#000000'/);
+  assert.match(iconJs, /drawGroundShadow\(context, frame\)/);
+  assert.match(iconJs, /quadraticCurveTo/);
+  assert.match(iconJs, /const leftArmRaise = typeof frame\.leftArmRaise/);
+  assert.match(iconJs, /const rightLegTuck = typeof frame\.rightLegTuck/);
+  assert.match(mapJs, /USER_LOCATION_MARKER_WIDTH = 32/);
+  assert.match(mapJs, /USER_LOCATION_MARKER_HEIGHT = 88/);
+  assert.match(mapJs, /USER_LOCATION_MARKER_Z_INDEX = 1/);
+  assert.match(mapJs, /zIndex: USER_LOCATION_MARKER_Z_INDEX/);
+  assert.match(placeUtilsJs, /zIndex: selected \? SELECTED_MARKER_Z_INDEX : 10 \+ originalLayer/);
+  assert.match(mapJs, /queueUserLocationDrop\(\)/);
+  assert.match(mapJs, /stopUserLocationDrop\(true\)/);
+  assert.match(mapJs, /requestUserLocationAnimationFrame\(render\)/);
+  assert.match(mapJs, /interpolateUserLocationFrame\(frames, elapsed\)/);
+  assert.doesNotMatch(mapJs, /setUserLocationIconFrame/);
+  assert.match(mapWxml, /<canvas[\s\S]*id="userLocationAnimationCanvas"[\s\S]*type="2d"/);
+  assert.match(mapWxss, /\.user-location-animation-canvas \{[^}]*pointer-events: none;[^}]*position: absolute/);
+
+  const firstTweenFrame = interpolateUserLocationFrame(USER_LOCATION_DROP_FRAMES, 27.5);
+  assert.ok(firstTweenFrame.alpha > 0 && firstTweenFrame.alpha < USER_LOCATION_DROP_FRAMES[1].alpha);
+  assert.ok(firstTweenFrame.leftArmRaise > firstTweenFrame.rightArmRaise);
+});
+
+test('tapping the user-location figure plays a natural in-place jump easter egg', () => {
+  const mapJs = fs.readFileSync(path.join(ROOT_DIR, 'miniprogram/pages/map/map.js'), 'utf8');
+  const iconJs = fs.readFileSync(path.join(ROOT_DIR, 'miniprogram/utils/user-location-icon.js'), 'utf8');
+  const { USER_LOCATION_JUMP_FRAMES } = require('../miniprogram/utils/user-location-icon');
+  const totalDuration = USER_LOCATION_JUMP_FRAMES.reduce((sum, frame) => sum + frame.duration, 0);
+  const markerTap = mapJs.match(/onMarkerTap\(event\) \{([\s\S]*?)\n  \},\n\n  onMapTap/);
+
+  assert.equal(USER_LOCATION_JUMP_FRAMES.length, 14);
+  assert.ok(USER_LOCATION_JUMP_FRAMES[0].scaleY < 0.85);
+  assert.ok(Math.min(...USER_LOCATION_JUMP_FRAMES.map((frame) => frame.offsetY)) <= -48);
+  assert.ok(USER_LOCATION_JUMP_FRAMES.some((frame) => frame.armRaise >= 15 && frame.kneeBend >= 10));
+  assert.ok(USER_LOCATION_JUMP_FRAMES.some((frame) => frame.offsetY === 0 && frame.scaleY <= 0.8));
+  assert.ok(totalDuration >= 650 && totalDuration <= 700);
+  assert.match(iconJs, /drawUserLocationJumpIconFrames/);
+  assert.ok(markerTap);
+  assert.match(markerTap[1], /marker\.markerType === 'user-location'/);
+  assert.match(markerTap[1], /this\.startUserLocationJump\(\)/);
+  assert.match(mapJs, /stopUserLocationJump\(true\)/);
+  assert.match(mapJs, /startUserLocationCanvasAnimation\(USER_LOCATION_JUMP_FRAMES, 'jump'\)/);
+});
+
+test('location loading spins the high-position figure before the continuous drop', () => {
+  const mapJs = fs.readFileSync(path.join(ROOT_DIR, 'miniprogram/pages/map/map.js'), 'utf8');
+  const mapWxml = fs.readFileSync(path.join(ROOT_DIR, 'miniprogram/pages/map/map.wxml'), 'utf8');
+  const mapWxss = fs.readFileSync(path.join(ROOT_DIR, 'miniprogram/pages/map/map.wxss'), 'utf8');
+  const iconJs = fs.readFileSync(path.join(ROOT_DIR, 'miniprogram/utils/user-location-icon.js'), 'utf8');
+
+  assert.doesNotMatch(mapJs, /wx\.(?:showLoading|hideLoading)/);
+  assert.doesNotMatch(mapWxml, /radar/);
+  assert.doesNotMatch(mapWxss, /radar/);
+  assert.match(mapWxml, /class="location-button"[\s\S]*?<image class="location-icon"/);
+  assert.match(mapJs, /USER_LOCATION_SEARCH_SPIN_DURATION_MS = 720/);
+  assert.match(mapJs, /startUserLocationSearchSpin\(\)/);
+  assert.match(mapJs, /spinYRotation: shouldFinish \? 0 : cycleProgress \* 360/);
+  assert.match(mapJs, /this\.requestUserLocationSearchFinish\(\)/);
+  assert.match(mapJs, /this\.userLocationDropPositionReady[\s\S]*this\.userLocationSearchSpinComplete/);
+  assert.match(mapJs, /this\.startUserLocationDrop\(true\)/);
+  assert.match(mapJs, /const spatialSpinBlend = this\.userLocationSearchStopRequested/);
+  assert.doesNotMatch(iconJs, /context\.rotate\(spinYRotation/);
+  assert.match(iconJs, /function projectSpatialPoint\(point, sine, cosine\)/);
+  assert.match(iconJs, /function drawSpatialSpinningPerson\(context, frame, blend\)/);
+  assert.match(iconJs, /const torsoHalfWidth = Math\.sqrt/);
+  assert.match(iconJs, /limbs\.filter\(\(limb\) => limb\.depth < 0\)\.forEach\(drawLimb\)/);
+  assert.match(iconJs, /limbs\.filter\(\(limb\) => limb\.depth >= 0\)\.forEach\(drawLimb\)/);
+  assert.doesNotMatch(iconJs, /shadowColor = 'rgba\(255, 255, 255/);
 });
 
 test('detail map uses a coordinate-bound static unselected marker', () => {
@@ -113,8 +229,10 @@ test('front-end category tabs are three equal-width choices', () => {
   const detailWxss = fs.readFileSync(path.join(ROOT_DIR, 'miniprogram/pages/detail/detail.wxss'), 'utf8');
 
   assert.doesNotMatch(mapWxml, /item\.width|scroll-x/);
+  assert.match(mapWxml, /wx:if="\{\{item\.active\}\}" class="category-indicator"/);
   assert.match(mapWxss, /\.category-row \{[^}]*width: 100%/);
   assert.match(mapWxss, /\.category-chip \{[^}]*flex: 1 1 0/);
+  assert.match(mapWxss, /\.category-indicator \{[^}]*background: #000000;[^}]*bottom: -2rpx;[^}]*height: 8rpx;[^}]*width: 36rpx/);
   assert.match(detailWxss, /\.nearby-category-chip \{[^}]*flex: 1 1 0/);
   assert.match(mapWxss, /\.category-dot \{[^}]*flex: 0 0 24rpx;[^}]*height: 24rpx;[^}]*width: 24rpx/);
   assert.match(detailWxss, /\.category-dot \{[^}]*flex: 0 0 24rpx;[^}]*height: 24rpx;[^}]*width: 24rpx/);

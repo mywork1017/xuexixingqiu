@@ -15,6 +15,14 @@
     bindregionchange="onRegionChange"
   />
 
+  <canvas
+    id="userLocationAnimationCanvas"
+    type="2d"
+    class="user-location-animation-canvas {{userLocationAnimationVisible ? 'visible' : ''}}"
+    style="transform: translate3d({{userLocationAnimationX}}px, {{userLocationAnimationY}}px, 0);"
+    aria-hidden="true"
+  ></canvas>
+
   <view class="map-header-bg" style="height: {{navMetrics.headerHeight}}px;"></view>
 
   <view
@@ -43,10 +51,18 @@
   </view>
 
   <view class="load-tip" wx:if="{{loadError}}">{{loadError}}</view>
-  <view class="empty-tip" wx:if="{{noResultsInView}}">{{emptyStateText}}</view>
+  <view class="empty-tip" wx:if="{{noResultsInView}}">
+    <text class="empty-tip-text">{{emptyStateText}}</text>
+    <button
+      wx:if="{{emptyStateCanGoShanghai}}"
+      class="empty-tip-link"
+      aria-label="去看看上海学习地点"
+      catchtap="goToShanghaiCenter"
+    >去看看</button>
+  </view>
 
   <view class="map-actions {{selectedPlace ? 'with-sheet' : ''}}">
-    <view class="location-button" aria-label="定位" bindtap="moveToUserLocation">
+    <view class="location-button" aria-label="{{locating ? '正在定位' : '定位'}}" bindtap="moveToUserLocation">
       <image class="location-icon" src="/assets/actions/map/ditu_ditu_dw.png" mode="aspectFit" />
     </view>
   </view>
