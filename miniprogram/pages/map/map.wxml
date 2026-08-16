@@ -55,7 +55,7 @@
     <text class="empty-tip-text">{{emptyStateText}}</text>
   </view>
 
-  <view class="map-actions {{selectedPlace ? 'with-sheet' : ''}}">
+  <view wx:if="{{!noResultsInView}}" class="map-actions {{selectedPlace ? 'with-sheet' : ''}}">
     <view class="location-button" aria-label="{{locating ? '正在定位' : '定位'}}" bindtap="moveToUserLocation">
       <image class="location-icon" src="/assets/actions/map/ditu_ditu_dw.png" mode="aspectFit" />
     </view>

@@ -19,8 +19,6 @@
 .load-tip { left: 32rpx; top: 224rpx; }
 .empty-tip { align-items: center; box-sizing: border-box; display: flex; gap: 16rpx; left: 50%; max-width: calc(100vw - 64rpx); top: calc(50% - 240rpx); transform: translate(-50%, -50%); white-space: nowrap; }
 .empty-tip-text { display: block; flex: 0 0 auto; line-height: 1.5; max-width: none; white-space: nowrap; }
-.empty-tip-link { align-items: center; background: transparent; border: 0; border-radius: 8rpx; color: #1c1c1e; display: inline-flex; flex: 0 0 auto; font-size: 24rpx; font-weight: 600; justify-content: center; line-height: 80rpx; margin: -12rpx -8rpx -12rpx 0; min-height: 80rpx; padding: 0 8rpx; text-decoration: underline; width: auto; }
-.empty-tip-link::after { border: 0; }
 .map-actions { bottom: calc(48rpx + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 16rpx; position: absolute; right: 32rpx; transition: bottom 200ms cubic-bezier(.22, 1, .36, 1); z-index: 2; }
 .map-actions.with-sheet { bottom: calc(366rpx + env(safe-area-inset-bottom)); right: 16rpx; }
 .location-button { align-items: center; background: rgba(255, 255, 255, 0.96); border: 1rpx solid rgba(60, 60, 67, 0.14); border-radius: 24rpx; box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, 0.10); box-sizing: border-box; display: flex; height: 80rpx; justify-content: center; width: 80rpx; }

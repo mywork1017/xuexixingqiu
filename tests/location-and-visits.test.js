@@ -87,6 +87,7 @@ test('定位按钮只移动到实时位置且附近无数据时仅显示提示',
   assert.doesNotMatch(moveToLocation[1], /\bscale\s*:/);
   assert.match(mapJs, /emptyStateText: '附近没有结果'/);
   assert.doesNotMatch(mapWxml, /goToShanghaiCenter|去看看/);
+  assert.match(mapWxml, /wx:if="\{\{!noResultsInView\}\}" class="map-actions/);
   assert.match(mapJs, /resolveInitialSelectionLocation\(\)[\s\S]*userLocation,[\s\S]*latitude: userLocation\.latitude,[\s\S]*longitude: userLocation\.longitude/);
   assert.match(mapJs, /requestAuthorizedLocation\('scope\.userLocation', 'getLocation'\)/);
   assert.match(mapJs, /wx\.getSetting/);

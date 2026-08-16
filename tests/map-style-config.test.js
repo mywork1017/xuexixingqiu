@@ -92,8 +92,7 @@ test('selected map dot stays enlarged, breathes without alpha flicker, and remai
   assert.match(mapJs, /onUnload\(\) \{[\s\S]*stopSelectedMarkerBreathing\(\)/);
   assert.match(mapWxss, /\.empty-tip \{[^}]*top: calc\(50% - 240rpx\);[^}]*translate\(-50%, -50%\)/);
   assert.match(mapWxss, /\.empty-tip-text \{[^}]*flex: 0 0 auto;[^}]*white-space: nowrap/);
-  assert.match(mapWxss, /\.empty-tip-link \{[^}]*min-height: 80rpx;[^}]*text-decoration: underline/);
-  assert.match(mapWxss, /\.empty-tip-link \{[^}]*display: inline-flex;[^}]*width: auto/);
+  assert.doesNotMatch(mapWxss, /\.empty-tip-link/);
 });
 
 test('user location uses a full-body black figure with a staged drop and rebound', () => {
