@@ -30,7 +30,6 @@ const {
 } = require('../../utils/user-location-icon');
 const {
   SHANGHAI_CENTER_LOCATION,
-  isRegionOutsideShanghai,
   isWithinShanghaiBounds
 } = require('../../utils/location-utils');
 
@@ -174,7 +173,6 @@ Page({
     loadError: '',
     noResultsInView: false,
     emptyStateText: '附近没有结果',
-    emptyStateCanGoShanghai: false,
     locating: false,
     cardSwipeDuration: CARD_SWIPE_DURATION_MS,
     visibleBounds: null
@@ -881,7 +879,6 @@ Page({
     const map = wx.createMapContext('studyMap');
     const applyVisiblePlaces = (visiblePlaces, region) => {
       const shouldAutoSelect = this.shouldAutoSelectVisiblePlace;
-      const outsideShanghai = isRegionOutsideShanghai(region);
       const unorderedDisplayPlaces = visiblePlaces.map((place) => this.withDisplayState(place));
       const visibleSelectedPlace = this.data.selectedPlace
         ? unorderedDisplayPlaces.find((place) => place.id === this.data.selectedPlace.id)
@@ -910,10 +907,7 @@ Page({
         selectedPlace,
         selectedPlaceIndex,
         noResultsInView: !this.data.loading && this.data.places.length > 0 && visiblePlaces.length === 0,
-        emptyStateText: outsideShanghai
-          ? '目前只有上海的图书馆和食堂数据'
-          : '附近没有结果',
-        emptyStateCanGoShanghai: outsideShanghai
+        emptyStateText: '附近没有结果'
       }, () => {
         this.syncMarkers(displayPlaces);
       });
@@ -1004,16 +998,6 @@ Page({
           }
         }
       });
-    });
-  },
-
-  goToShanghaiCenter() {
-    this.setData({
-      latitude: SHANGHAI_CENTER_LOCATION.latitude,
-      longitude: SHANGHAI_CENTER_LOCATION.longitude,
-      selectedPlace: null,
-      noResultsInView: false,
-      emptyStateCanGoShanghai: false
     });
   },
 

@@ -166,6 +166,28 @@ test('农村自然村门牌可作为完整地址', async () => {
   assert.equal(issues.includes('missing_street_number'), false);
 });
 
+test('苏州公共图书馆和社区助餐点通过城市范围审计', async () => {
+  const { auditPlaceRecord, extractDistrict } = await import('../scripts/lib/place-data-quality.mjs');
+  const places = [
+    {
+      name: '苏州图书馆（姑苏分馆）',
+      category: '图书馆',
+      address: '苏州市姑苏区西环路2115号',
+      latitude: 31.31,
+      longitude: 120.59
+    },
+    {
+      name: '越溪街道珠村社区幸福食堂',
+      category: '食堂',
+      address: '苏州市吴中区越溪街道文溪路997号',
+      latitude: 31.21,
+      longitude: 120.61
+    }
+  ];
+  assert.equal(extractDistrict(places[0].address), '姑苏区');
+  for (const place of places) assert.deepEqual(auditPlaceRecord(place), []);
+});
+
 test('已移除的地点分类被数据审计阻断', async () => {
   const { auditPlaceRecord } = await import('../scripts/lib/place-data-quality.mjs');
   for (const category of ['自习室', '书店', '党群服务中心', '社区食堂']) {

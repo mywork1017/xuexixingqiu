@@ -71,11 +71,11 @@ test('匿名访客编号稳定且不暴露 openid', () => {
   assert.doesNotMatch(first.visitorId, /openid-123/);
 });
 
-test('定位按钮只移动到实时位置且地图外空状态使用上海数据提示', () => {
+test('定位按钮只移动到实时位置且附近无数据时仅显示提示', () => {
   const mapJs = read('miniprogram/pages/map/map.js');
   const mapWxml = read('miniprogram/pages/map/map.wxml');
   const appConfig = JSON.parse(read('miniprogram/app.json'));
-  const moveToLocation = mapJs.match(/moveToUserLocation\(\) \{([\s\S]*?)\n  \},\n\n  goToShanghaiCenter/);
+  const moveToLocation = mapJs.match(/moveToUserLocation\(\) \{([\s\S]*?)\n  \},\n\n  openLocation/);
   assert.ok(moveToLocation);
   assert.match(moveToLocation[1], /this\.getAuthorizedUserLocation\(\)/);
   assert.match(moveToLocation[1], /recordLocationVisit\(location, 'location_button'\)/);
@@ -85,14 +85,9 @@ test('定位按钮只移动到实时位置且地图外空状态使用上海数�
   assert.match(moveToLocation[1], /this\.queueUserLocationDrop\(\)/);
   assert.doesNotMatch(moveToLocation[1], /wx\.(?:showLoading|hideLoading)/);
   assert.doesNotMatch(moveToLocation[1], /\bscale\s*:/);
-  assert.match(mapJs, /目前只有上海的图书馆和食堂数据/);
-  assert.match(mapWxml, /\{\{emptyStateText\}\}[\s\S]*catchtap="goToShanghaiCenter"[\s\S]*去看看/);
+  assert.match(mapJs, /emptyStateText: '附近没有结果'/);
+  assert.doesNotMatch(mapWxml, /goToShanghaiCenter|去看看/);
   assert.match(mapJs, /resolveInitialSelectionLocation\(\)[\s\S]*userLocation,[\s\S]*latitude: userLocation\.latitude,[\s\S]*longitude: userLocation\.longitude/);
-  const goToShanghai = mapJs.match(/goToShanghaiCenter\(\) \{([\s\S]*?)\n  \},\n\n  openLocation/);
-  assert.ok(goToShanghai);
-  assert.match(goToShanghai[1], /latitude: SHANGHAI_CENTER_LOCATION\.latitude/);
-  assert.match(goToShanghai[1], /longitude: SHANGHAI_CENTER_LOCATION\.longitude/);
-  assert.doesNotMatch(goToShanghai[1], /userLocation\s*:|\bscale\s*:/);
   assert.match(mapJs, /requestAuthorizedLocation\('scope\.userLocation', 'getLocation'\)/);
   assert.match(mapJs, /wx\.getSetting/);
   assert.match(mapJs, /wx\.authorize/);

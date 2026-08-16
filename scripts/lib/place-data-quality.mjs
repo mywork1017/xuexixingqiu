@@ -17,9 +17,23 @@ export const SHANGHAI_DISTRICTS = [
   '崇明区'
 ];
 
+export const SUZHOU_DISTRICTS = [
+  '姑苏区',
+  '虎丘区',
+  '吴中区',
+  '相城区',
+  '吴江区',
+  '苏州工业园区',
+  '苏州高新区',
+  '常熟市',
+  '张家港市',
+  '昆山市',
+  '太仓市'
+];
+
 export const SUPPORTED_CATEGORIES = ['图书馆', '食堂'];
 
-const DISTRICT_PATTERN = new RegExp(SHANGHAI_DISTRICTS.join('|'));
+const DISTRICT_PATTERN = new RegExp([...SHANGHAI_DISTRICTS, ...SUZHOU_DISTRICTS].join('|'));
 const SCHOOL_PATTERN = /(大学|学院|学校|校区|小学|中学|初中|高中|幼儿园|九年一贯制|十二年一贯制|中等职业|职校|技校)/;
 const RESTRICTED_INSTITUTION_PATTERN = /(机关|政府(?!路)|委员会|管理局|税务局|公安局|检察院|法院|公司|集团|银行|医院|部队|军队|协会|商会|工会|企业|职工)/;
 const ROAD_NUMBER_PATTERN = /([^区县\d,，/()（）]{1,30}(?:公路|大道|路|街|道|弄|巷|村))\s*(\d+)(?:\s*[-—至到]\s*(\d+))?(?:\s*弄\s*(\d+))?\s*号?/g;
@@ -35,13 +49,13 @@ export function normalizeName(value) {
   return cleanText(value)
     .toLowerCase()
     .replace(/[（(【\[].*?[）)】\]]/g, '')
-    .replace(/上海市?|社区|街道|乡|镇|文化活动中心|文化中心|服务中心|分馆|馆/g, '')
+    .replace(/上海市?|苏州市?|社区|街道|乡|镇|文化活动中心|文化中心|服务中心|分馆|馆/g, '')
     .replace(/[·•,，.。:：;；/\\_\-—&“”"'’]/g, '');
 }
 
 export function normalizeAddress(value) {
   return cleanText(value)
-    .replace(/^上海市?/, '')
+    .replace(/^(?:上海|苏州)市?/, '')
     .replace(/[（(].*?[）)]/g, '')
     .replace(/[，,。.、:：;；/\\_\-—]/g, '');
 }
@@ -59,7 +73,7 @@ function normalizeRoadName(value) {
 
 export function extractRoadNumbers(value) {
   const address = cleanText(value)
-    .replace(/^上海市?/, '')
+    .replace(/^(?:上海|苏州)市?/, '')
     .replace(/[，,。.、:：;；\\_—]/g, '')
     .replace(/临时服务点[:：]?/g, '');
   return [...address.matchAll(ROAD_NUMBER_PATTERN)].map((match) => ({
@@ -152,7 +166,7 @@ export function scoreMapCandidate(place, candidate) {
 
 export function auditPlaceRecord(place) {
   const issues = [];
-  const structuredAddressLocator = /(?:花园|宅)\d+号|村[^,，]*\d+(?:组[^,，]*\d+)?号|(?:路|街|弄).*(?:交叉口|地铁站).{0,12}\d+米|(?:小区|花园|公寓|大楼|大厦|中心|广场|菜市场|园区|邻里中心).*(?:门|楼|层|旁).{0,12}(?:\d+米)?|(?:村|苑|酒店|园|城|工业区).{0,20}(?:门|旁).{0,10}(?:\d+米)?/.test(cleanText(place.address));
+  const structuredAddressLocator = /(?:花园|宅)\d+号|村[^,，]*\d+(?:组[^,，]*\d+)?号|(?:路|街|弄).*(?:交叉口|地铁站).{0,12}\d+米|(?:地铁|轨交).{0,30}(?:站|口)|(?:小区|花园|公寓|大楼|大厦|中心|广场|菜市场|园区|邻里中心).*(?:门|楼|层|旁).{0,12}(?:\d+米)?|(?:村|苑|酒店|园|城|工业区).{0,20}(?:门|旁).{0,10}(?:\d+米)?/.test(cleanText(place.address));
   if (!cleanText(place.name)) issues.push('missing_name');
   if (!cleanText(place.address)) issues.push('missing_address');
   if (!SUPPORTED_CATEGORIES.includes(place.category)) issues.push('unsupported_category');
@@ -161,12 +175,21 @@ export function auditPlaceRecord(place) {
   const latitude = Number(place.latitude);
   const longitude = Number(place.longitude);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) issues.push('invalid_coordinates');
+  const withinShanghai = Number.isFinite(latitude)
+    && Number.isFinite(longitude)
+    && latitude >= 30.6 && latitude <= 31.9
+    && longitude >= 120.8 && longitude <= 122.2;
+  const withinSuzhou = Number.isFinite(latitude)
+    && Number.isFinite(longitude)
+    && latitude >= 30.7 && latitude <= 32.1
+    && longitude >= 119.8 && longitude <= 121.3;
   if (
     Number.isFinite(latitude)
     && Number.isFinite(longitude)
-    && (latitude < 30.6 || latitude > 31.9 || longitude < 120.8 || longitude > 122.2)
+    && !withinShanghai
+    && !withinSuzhou
   ) {
-    issues.push('outside_shanghai_bounds');
+    issues.push('outside_supported_city_bounds');
   }
   if (place.category === '图书馆' && isExcludedSchoolLibrary(place.name)) issues.push('school_library');
   if (isRestrictedInstitutionPlace(place.name)) issues.push('restricted_institution');

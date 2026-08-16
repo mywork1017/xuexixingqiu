@@ -53,12 +53,6 @@
   <view class="load-tip" wx:if="{{loadError}}">{{loadError}}</view>
   <view class="empty-tip" wx:if="{{noResultsInView}}">
     <text class="empty-tip-text">{{emptyStateText}}</text>
-    <button
-      wx:if="{{emptyStateCanGoShanghai}}"
-      class="empty-tip-link"
-      aria-label="去看看上海学习地点"
-      catchtap="goToShanghaiCenter"
-    >去看看</button>
   </view>
 
   <view class="map-actions {{selectedPlace ? 'with-sheet' : ''}}">
