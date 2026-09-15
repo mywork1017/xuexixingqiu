@@ -28,6 +28,21 @@ const app = cloudbase.init({
 });
 const collection = app.database().collection(config.collection);
 const publicRoot = path.resolve(import.meta.dirname, '..', 'public');
+const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const withRetry = async (operation, label, attempts = 5) => {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts) break;
+      process.stderr.write(`上传重试 ${label}：${attempt}/${attempts - 1}\n`);
+      await wait(attempt * 1000);
+    }
+  }
+  throw lastError;
+};
 
 const fingerprint = (place) => createHash('sha256').update(JSON.stringify({
   name: place.name,
@@ -55,18 +70,24 @@ const uploadPhotos = async (place) => Promise.all(place.photos.map(async (photo,
 }));
 
 const localIds = new Set(places.map((place) => place.id));
+const cloudIds = new Set();
 const staleIds = [];
 for (let offset = 0; ; offset += 100) {
   const page = await collection.field({ _id: true }).skip(offset).limit(100).get();
   const ids = page.data.map((item) => String(item._id || '')).filter(Boolean);
+  ids.forEach((id) => cloudIds.add(id));
   staleIds.push(...ids.filter((id) => !localIds.has(id)));
   if (ids.length < 100) break;
 }
 
+const placesToPush = places.filter((place) => (
+  !cloudIds.has(place.id)
+  || place.pushedFingerprint !== fingerprint(place)
+));
 const pushedFingerprints = [];
-for (let offset = 0; offset < places.length; offset += 20) {
-  const batch = places.slice(offset, offset + 20);
-  await Promise.all(batch.map(async (place) => {
+for (let offset = 0; offset < placesToPush.length; offset += 20) {
+  const batch = placesToPush.slice(offset, offset + 20);
+  const batchFingerprints = await Promise.all(batch.map((place) => withRetry(async () => {
     const photos = await uploadPhotos(place);
     await collection.doc(place.id).set({
       id: place.id,
@@ -80,21 +101,18 @@ for (let offset = 0; offset < places.length; offset += 20) {
       photos,
       updatedAt: place.updatedAt.toISOString().slice(0, 10)
     });
-    pushedFingerprints.push({ id: place.id, fingerprint: fingerprint(place) });
-  }));
-  process.stdout.write(`已推送 ${Math.min(offset + batch.length, places.length)}/${places.length}\n`);
+    return { id: place.id, fingerprint: fingerprint(place) };
+  }, place.id)));
+  await prisma.$transaction(batchFingerprints.map((item) => prisma.place.update({
+    where: { id: item.id },
+    data: { pushedFingerprint: item.fingerprint }
+  })));
+  pushedFingerprints.push(...batchFingerprints);
+  process.stdout.write(`已推送 ${Math.min(offset + batch.length, placesToPush.length)}/${placesToPush.length}\n`);
 }
 
 for (let offset = 0; offset < staleIds.length; offset += 20) {
   await Promise.all(staleIds.slice(offset, offset + 20).map((id) => collection.doc(id).remove()));
 }
-for (let offset = 0; offset < pushedFingerprints.length; offset += 100) {
-  const batch = pushedFingerprints.slice(offset, offset + 100);
-  await prisma.$transaction(batch.map((item) => prisma.place.update({
-    where: { id: item.id },
-    data: { pushedFingerprint: item.fingerprint }
-  })));
-}
-
-process.stdout.write(`同步完成：推送 ${places.length} 条，清理云端旧记录 ${staleIds.length} 条\n`);
+process.stdout.write(`同步完成：推送 ${placesToPush.length} 条，跳过未变化 ${places.length - placesToPush.length} 条，清理云端旧记录 ${staleIds.length} 条\n`);
 await prisma.$disconnect();

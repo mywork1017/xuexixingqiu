@@ -30,6 +30,7 @@
 .category-dot { border-radius: 50%; box-sizing: border-box; flex: 0 0 24rpx; height: 24rpx; width: 24rpx; }
 .category-dot.solid { background: #000000; border: 1px solid #ffffff; }
 .category-dot.inverse { background: #ffffff; border: 1px solid #000000; }
+.category-dot.nature { background: #4f7f58; border: 1px solid #ffffff; }
 .nearby-list { display: flex; flex-direction: column; margin-top: 16rpx; }
 .nearby-item { align-items: center; border-bottom: 1rpx solid rgba(60, 60, 67, 0.14); display: grid; gap: 16rpx; grid-template-columns: minmax(0, 1fr) 104rpx 16rpx; min-height: 112rpx; padding: 20rpx 0; }
 .nearby-item:last-child { border-bottom: 0; }

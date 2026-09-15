@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import sys
@@ -5,6 +6,32 @@ import time
 
 from xhs_cli import auth
 from xhs_cli.client import XhsClient
+
+
+def compact_image(image):
+    info_list = image.get("infoList") or image.get("info_list") or []
+    return {
+        "width": image.get("width"),
+        "height": image.get("height"),
+        "url": image.get("url"),
+        "urlDefault": image.get("urlDefault") or image.get("url_default"),
+        "infoList": [
+            {"imageScene": item.get("imageScene"), "url": item.get("url")}
+            for item in info_list
+            if item.get("url")
+        ],
+    }
+
+
+def compact_note(note):
+    return {
+        "title": note.get("title") or note.get("displayTitle") or "",
+        "displayTitle": note.get("displayTitle") or "",
+        "desc": note.get("desc") or note.get("description") or "",
+        "time": note.get("time"),
+        "lastUpdateTime": note.get("lastUpdateTime"),
+        "imageList": [compact_image(image) for image in (note.get("imageList") or note.get("image_list") or [])],
+    }
 
 
 def get_note_detail(client, note_id, xsec_token):
@@ -64,7 +91,7 @@ with XhsClient(cookie_dict) as client:
                     str(request.get("noteId", "")),
                     str(request.get("xsecToken", "")),
                 )
-                data = {"note": detail.get("note", detail)}
+                data = {"note": compact_note(detail.get("note", detail))}
             else:
                 raise ValueError(f"Unsupported operation: {operation}")
             response = {"id": request_id, "ok": True, "data": data}
@@ -74,4 +101,7 @@ with XhsClient(cookie_dict) as client:
                 "ok": False,
                 "error": f"{type(error).__name__}: {error}",
             }
-        print(json.dumps(response, ensure_ascii=False), flush=True)
+        serialized = json.dumps(response, ensure_ascii=False)
+        if os.environ.get("XHS_FRAMED") == "1":
+            serialized = "XHSJSON:" + base64.b64encode(serialized.encode("utf-8")).decode("ascii")
+        print(serialized, flush=True)

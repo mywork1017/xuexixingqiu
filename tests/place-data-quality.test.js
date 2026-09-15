@@ -70,6 +70,10 @@ test('道路别名和门牌范围可匹配', async () => {
     { name: '静安区图书馆', address: '上海市静安区新闸路1708号' },
     { name: '静安区图书馆', address: '上海市静安区新闸路1702-1708号' }
   ).accepted, true);
+  assert.equal(scoreMapCandidate(
+    { name: '苏州图书馆（高新区文体中心分馆）', address: '苏州高新区太湖大道999号' },
+    { name: '苏州高新区图书馆', address: '苏州市虎丘区太湖大道999号' }
+  ).accepted, true);
 });
 
 test('同路不同门牌仍被拒绝', async () => {
@@ -188,6 +192,44 @@ test('苏州公共图书馆和社区助餐点通过城市范围审计', async ()
   for (const place of places) assert.deepEqual(auditPlaceRecord(place), []);
 });
 
+test('嘉兴、南通、无锡、镇江点位通过行政区和坐标审计', async () => {
+  const { auditPlaceRecord, extractDistrict } = await import('../scripts/lib/place-data-quality.mjs');
+  const places = [
+    {
+      name: '嘉兴市图书馆', category: '图书馆', address: '嘉兴市南湖区海盐塘路339号', latitude: 30.746, longitude: 120.77
+    },
+    {
+      name: '南山社区食堂', category: '食堂', address: '南通市通州区金沙街道青年路8号', latitude: 32.08, longitude: 121.08
+    },
+    {
+      name: '梁溪区清名桥街道君来助餐中心', category: '食堂', address: '无锡市梁溪区清名桥街道清扬路100号', latitude: 31.55, longitude: 120.31
+    },
+    {
+      name: '镇江市图书馆', category: '图书馆', address: '镇江市京口区解放路17号', latitude: 32.2, longitude: 119.43
+    },
+    {
+      name: '滨湖区螡园街道西园区域性助餐中心', category: '食堂', address: '无锡市滨湖区西园里393号', latitude: 31.545684, longitude: 120.260357
+    }
+  ];
+  assert.deepEqual(places.map((place) => extractDistrict(place.address)), ['南湖区', '通州区', '梁溪区', '京口区', '滨湖区']);
+  for (const place of places) assert.deepEqual(auditPlaceRecord(place), []);
+});
+
+test('新城市名称与地址归一化保留门牌匹配能力', async () => {
+  const { scoreMapCandidate } = await import('../scripts/lib/place-data-quality.mjs');
+  for (const [name, address, candidateName, candidateAddress] of [
+    ['嘉兴市图书馆', '嘉兴市南湖区海盐塘路339号', '嘉兴图书馆', '浙江省嘉兴市南湖区海盐塘路339号'],
+    ['南通市图书馆', '南通市崇川区崇文路2号', '南通图书馆', '江苏省南通市崇川区崇文路2号'],
+    ['无锡市图书馆', '无锡市梁溪区钟书路1号', '无锡图书馆', '江苏省无锡市梁溪区钟书路1号'],
+    ['镇江市图书馆', '镇江市京口区解放路17号', '镇江图书馆', '江苏省镇江市京口区解放路17号']
+  ]) {
+    assert.equal(scoreMapCandidate(
+      { name, address },
+      { name: candidateName, address: candidateAddress }
+    ).accepted, true);
+  }
+});
+
 test('已移除的地点分类被数据审计阻断', async () => {
   const { auditPlaceRecord } = await import('../scripts/lib/place-data-quality.mjs');
   for (const category of ['自习室', '书店', '党群服务中心', '社区食堂']) {
@@ -199,4 +241,19 @@ test('已移除的地点分类被数据审计阻断', async () => {
       longitude: 121.48
     }).includes('unsupported_category'));
   }
+});
+
+test('自然类允许公共公园绿地与滨水风光带', async () => {
+  const { auditPlaceRecord, isEligibleNatureName } = await import('../scripts/lib/place-data-quality.mjs');
+  for (const name of ['世纪公园', '陆家嘴中心绿地', '氪南滨江风光带']) {
+    assert.equal(isEligibleNatureName(name), true);
+    assert.ok(!auditPlaceRecord({
+      name,
+      category: '自然',
+      address: '上海市浦东新区锦绣路1001号',
+      latitude: 31.216,
+      longitude: 121.548
+    }).includes('unsupported_category'));
+  }
+  assert.equal(isEligibleNatureName('某小区内部绿地'), false);
 });

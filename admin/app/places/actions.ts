@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import {
   CATEGORY_OPTIONS,
   isEligibleCanteenName,
+  isEligibleNatureName,
   isExcludedPlaceType,
   isExcludedSchoolPlace,
   isRestrictedInstitutionPlace,
@@ -24,8 +25,9 @@ export async function savePlace(formData: FormData) {
   const category = String(formData.get('category') || '');
   const photos = parseList(formData.get('photos'));
 
-  if (photos.length > 5) {
-    throw new Error('每个地点最多保存 5 张照片');
+  const maximumPhotoCount = category === '自然' ? 10 : 5;
+  if (photos.length > maximumPhotoCount) {
+    throw new Error(`当前分类每个地点最多保存 ${maximumPhotoCount} 张照片`);
   }
 
   const name = String(formData.get('name') || '').trim();
@@ -51,6 +53,10 @@ export async function savePlace(formData: FormData) {
 
   if (category === '食堂' && !isEligibleCanteenName(name)) {
     throw new Error('食堂仅采集社区、长者、老年及公益助餐场所');
+  }
+
+  if (category === '自然' && !isEligibleNatureName(name)) {
+    throw new Error('自然类仅收录公开公园、绿地、山林、湖岸、滨水风光带和自然保护地');
   }
 
   const address = String(formData.get('address') || '').trim();

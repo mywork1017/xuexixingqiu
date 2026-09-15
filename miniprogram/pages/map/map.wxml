@@ -29,7 +29,7 @@
     class="custom-nav"
     style="padding-top: {{navMetrics.statusBarHeight}}px; min-height: {{navMetrics.navBarHeight}}px; transform: translateY({{navMetrics.contentOffset}}px);"
   >
-    <view class="nav-title" style="padding-right: {{navMetrics.capsuleReserve}}px;">通仔的学习星球</view>
+    <view class="nav-title" style="padding-right: {{navMetrics.capsuleReserve}}px;">通仔的星球</view>
   </view>
 
   <view class="top-panel" style="top: {{navMetrics.filterTop}}px;">
@@ -79,10 +79,6 @@
                 <view class="sheet-meta-row address-row">
                   <image class="sheet-meta-icon" src="/assets/actions/map/ditu_kapian_dz.png" mode="aspectFit" />
                   <text class="sheet-meta-text">{{place.displayAddress}}</text>
-                </view>
-                <view class="sheet-meta-row">
-                  <image class="sheet-meta-icon" src="/assets/actions/map/ditu_kapian_sj.png" mode="aspectFit" />
-                  <text class="sheet-meta-text">{{place.displayHours}}</text>
                 </view>
               </view>
             </view>

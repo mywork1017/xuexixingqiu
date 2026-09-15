@@ -1,7 +1,7 @@
 {
-  "description": "通仔的学习星球微信小程序",
+  "description": "通仔的星球微信小程序",
   "appid": "wx9e24d32ac69faf81",
-  "projectname": "通仔的学习星球",
+  "projectname": "通仔的星球",
   "miniprogramRoot": "./",
   "cloudfunctionRoot": "../cloudfunctions/",
   "compileType": "miniprogram",

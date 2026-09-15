@@ -24,10 +24,11 @@ const {
   sanitizePlaceDescription
 } = require('../miniprogram/utils/place-utils');
 
-test('CATEGORY_OPTIONS contains the two supported place categories in product order', () => {
+test('CATEGORY_OPTIONS contains supported place categories in product order', () => {
   assert.deepEqual(CATEGORY_OPTIONS, [
     '图书馆',
-    '食堂'
+    '食堂',
+    '自然'
   ]);
 });
 
@@ -35,7 +36,8 @@ test('CATEGORY_FILTER_OPTIONS starts with 全部 before place categories', () =>
   assert.deepEqual(CATEGORY_FILTER_OPTIONS, [
     '全部',
     '图书馆',
-    '食堂'
+    '食堂',
+    '自然'
   ]);
 });
 
@@ -49,10 +51,11 @@ test('filterPlaces returns all places for 全部 and only matching places for a 
   const places = [
     { name: '徐家汇书院', category: '图书馆' },
     { name: '浦东新区党群服务中心', category: '图书馆' },
-    { name: '静安社区食堂', category: '食堂' }
+    { name: '静安社区食堂', category: '食堂' },
+    { name: '徐家汇公园', category: '自然' }
   ];
 
-  assert.equal(filterPlaces(places, '全部').length, 2);
+  assert.equal(filterPlaces(places, '全部').length, 3);
   assert.deepEqual(filterPlaces(places, '图书馆'), [
     { name: '徐家汇书院', category: '图书馆' }
   ]);
@@ -62,12 +65,14 @@ test('filterPlacesByCategories supports compact multi-select filtering', () => {
   const places = [
     { name: '徐家汇书院', category: '图书馆' },
     { name: '闵行城市书房', category: '图书馆' },
-    { name: '静安社区食堂', category: '食堂' }
+    { name: '静安社区食堂', category: '食堂' },
+    { name: '徐家汇公园', category: '自然' }
   ];
 
-  assert.deepEqual(filterPlacesByCategories(places, ['图书馆', '食堂']), [
+  assert.deepEqual(filterPlacesByCategories(places, ['图书馆', '食堂', '自然']), [
     { name: '徐家汇书院', category: '图书馆' },
-    { name: '静安社区食堂', category: '食堂' }
+    { name: '静安社区食堂', category: '食堂' },
+    { name: '徐家汇公园', category: '自然' }
   ]);
   assert.equal(filterPlacesByCategories(places, []).length, 0);
 });
@@ -422,6 +427,8 @@ test('getPlaceVisualMeta exposes the shared brand color and category marker styl
   assert.equal(getPlaceVisualMeta('图书馆').markerStyle, 'solid');
   assert.equal(getPlaceVisualMeta('食堂').mapMarkerColor, '#000000');
   assert.equal(getPlaceVisualMeta('食堂').markerStyle, 'inverse');
+  assert.equal(getPlaceVisualMeta('自然').mapMarkerColor, '#4f7f58');
+  assert.equal(getPlaceVisualMeta('自然').markerStyle, 'nature');
 });
 
 test('getPlaceDisplayPhotos returns configured photos without adding a placeholder', () => {
@@ -444,6 +451,7 @@ test('map cards and detail pages share address and hours display rules', () => {
   assert.equal(getPlaceDisplayHours({ hours: '以现场公示为准' }), '—');
   assert.equal(getPlaceNavigationLabel({ category: '图书馆' }), '去学习');
   assert.equal(getPlaceNavigationLabel({ category: '食堂' }), '去吃饭');
+  assert.equal(getPlaceNavigationLabel({ category: '自然' }), '去走走');
 });
 
 test('getDistanceText hides unavailable distances and formats nearby values', () => {
@@ -453,7 +461,7 @@ test('getDistanceText hides unavailable distances and formats nearby values', ()
   assert.equal(getDistanceText(1.26), '1.3 公里');
 });
 
-test('getDisplayPlaces filters by categories, visible bounds, and low-scale priority', () => {
+test('getDisplayPlaces returns every in-bounds category at every scale until explicit limit', () => {
   const places = [
     {
       id: 'major-library',
@@ -488,13 +496,38 @@ test('getDisplayPlaces filters by categories, visible bounds, and low-scale prio
     categories: ['图书馆', '食堂'],
     bounds,
     scale: 10
-  }).map((place) => place.id), ['major-library']);
+  }).map((place) => place.id), ['major-library', 'small-canteen']);
 
   assert.deepEqual(getDisplayPlaces(places, {
     categories: ['图书馆', '食堂'],
     bounds,
     scale: 12
   }).map((place) => place.id), ['major-library', 'small-canteen']);
+
+  assert.equal(getDisplayPlaces(Array.from({ length: 520 }, (_, index) => ({
+    id: `place-${index}`,
+    name: `地点${index}`,
+    category: index % 2 ? '图书馆' : '食堂',
+    latitude: 31.2,
+    longitude: 121.5
+  })), {
+    categories: ['图书馆', '食堂'],
+    bounds,
+    maxCount: 500,
+    pinnedPlaceIds: ['place-519']
+  }).length, 500);
+  assert.ok(getDisplayPlaces(Array.from({ length: 520 }, (_, index) => ({
+    id: `place-${index}`,
+    name: `地点${index}`,
+    category: index % 2 ? '图书馆' : '食堂',
+    latitude: 31.2,
+    longitude: 121.5
+  })), {
+    categories: ['图书馆', '食堂'],
+    bounds,
+    maxCount: 500,
+    pinnedPlaceIds: ['place-519']
+  }).some((place) => place.id === 'place-519'));
 });
 
 test('getNearbyPlaces returns other places within the requested radius', () => {

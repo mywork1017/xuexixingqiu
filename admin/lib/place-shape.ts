@@ -1,4 +1,4 @@
-export const CATEGORY_OPTIONS = ['图书馆', '食堂'];
+export const CATEGORY_OPTIONS = ['图书馆', '食堂', '自然'];
 
 export type AdminPlaceInput = {
   name: string;
@@ -40,6 +40,15 @@ export function isEligibleCanteenName(value: { name?: string } | string) {
   const publicMealService = /(社区|长者|老年|市民|邻里|天平里|天平新里|众乐山|食尚书舍|助餐(?:点|服务|食堂))/.test(name);
   if (!publicMealService) return false;
   return !/(自选大食堂|自助大食堂)/.test(name);
+}
+
+export function isEligibleNatureName(value: { name?: string } | string) {
+  const name = typeof value === 'string' ? value : String(value.name || '');
+  const officialTypeFreeName = /^(?:竖新会客厅|桂江路[三四]期|浏缘|梅馨陇韵|美树里|龙游河三期|匠心筑缘|五山片区|濠西书苑休闲区|福巷)$/;
+  const publicNaturePlace = /(公园|绿地|绿廊|生态走廊|生态廊道|风光带|景观带|滨水空间|滨江|滨河|湖滨|河畔|湿地|森林|游园|生态园|风景区|景区|步道|绿道|花谷|绿洲|绿岛|花园|植物园|园(?:（.*）)?$|苑$|湾$|广场$|圃$|堤$|(?:山|湖|岛|洲|滩|谷|岭|峰)$)/.test(name)
+    || officialTypeFreeName.test(name);
+  const excluded = /(小区|住宅|校园|单位内部|高尔夫|私家|市政隔离带|道路中央绿带)/.test(name);
+  return publicNaturePlace && !excluded;
 }
 
 export function toMiniProgramPlace(place: {

@@ -126,7 +126,15 @@ async def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     records = []
     libraries = []
-    config = CrawlerRunConfig(cache_mode=CacheMode.BYPASS, word_count_threshold=1)
+    config = CrawlerRunConfig(
+        cache_mode=CacheMode.BYPASS,
+        word_count_threshold=1,
+        page_timeout=60000,
+        wait_for_images=True,
+        delay_before_return_html=1.0,
+        scan_full_page=True,
+        max_scroll_steps=8,
+    )
     browser = BrowserConfig(headless=True, verbose=False)
     async with AsyncWebCrawler(config=browser) as crawler:
         for index, source in enumerate(SOURCES):
@@ -135,6 +143,7 @@ async def main():
             markdown_path = OUTPUT_DIR / f"{index:02d}-{digest}.md"
             html_path = OUTPUT_DIR / f"{index:02d}-{digest}.html"
             markdown = markdown_text(result) if result.success else ""
+            fetched_at = datetime.now(timezone.utc).isoformat()
             markdown_path.write_text(markdown, encoding="utf-8")
             html_path.write_text(result.html or "", encoding="utf-8")
             if source["kind"] == "libraries" and result.success:
@@ -145,6 +154,11 @@ async def main():
                 "statusCode": result.status_code,
                 "resultUrl": result.url,
                 "error": result.error_message or "",
+                "archiveVersion": "suzhou-official-sources-v2-strict",
+                "fetchedAt": fetched_at,
+                "pageTitle": str((result.metadata or {}).get("title", "")),
+                "publishedAt": str((result.metadata or {}).get("date", "")),
+                "contentHash": hashlib.sha256(markdown.encode("utf-8")).hexdigest(),
                 "markdownPath": str(markdown_path),
                 "htmlPath": str(html_path),
                 "markdownLength": len(markdown),

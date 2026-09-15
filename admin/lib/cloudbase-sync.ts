@@ -65,6 +65,7 @@ export async function syncPublishedPlaces(): Promise<CloudBaseSyncResult> {
   const database = app.database();
   const collection = database.collection(config.collection);
   const publishedIds = new Set(places.map((place) => place.id));
+  const cloudIds = new Set<string>();
   const staleIds: string[] = [];
   const pageSize = 100;
 
@@ -73,16 +74,21 @@ export async function syncPublishedPlaces(): Promise<CloudBaseSyncResult> {
     const ids = page.data
       .map((item) => String(item._id || ''))
       .filter(Boolean);
+    ids.forEach((id) => cloudIds.add(id));
     staleIds.push(...ids.filter((id) => !publishedIds.has(id)));
     if (ids.length < pageSize) break;
   }
 
+  const placesToPush = places.filter((place) => (
+    !cloudIds.has(place.id)
+    || place.pushedFingerprint !== getPlaceFingerprint(place)
+  ));
   let pushed = 0;
   let deleted = 0;
   const pushedFingerprints: Array<{ id: string; fingerprint: string }> = [];
 
-  for (let offset = 0; offset < places.length; offset += 20) {
-    const batch = places.slice(offset, offset + 20);
+  for (let offset = 0; offset < placesToPush.length; offset += 20) {
+    const batch = placesToPush.slice(offset, offset + 20);
     await Promise.all(batch.map(async (place) => {
       const fingerprint = getPlaceFingerprint(place);
       const payload = toMiniProgramPlace(place);

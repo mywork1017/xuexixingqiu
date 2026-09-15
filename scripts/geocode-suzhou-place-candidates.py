@@ -2,6 +2,7 @@
 """Verify Suzhou place candidates against Apple Maps China (Amap basemap)."""
 
 import asyncio
+import argparse
 import json
 import re
 from datetime import datetime, timezone
@@ -41,7 +42,11 @@ def score_candidate(place, candidate):
 
 
 async def main():
-    payload = json.loads(INPUT_PATH.read_text(encoding="utf-8"))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", type=Path, default=INPUT_PATH)
+    parser.add_argument("--output", type=Path, default=OUTPUT_PATH)
+    args = parser.parse_args()
+    payload = json.loads(args.input.read_text(encoding="utf-8"))
     records = []
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(headless=True, executable_path=CHROME_PATH)
@@ -101,7 +106,8 @@ async def main():
             await page.wait_for_timeout(300)
         await browser.close()
 
-    OUTPUT_PATH.write_text(
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(
         json.dumps({
             "generatedAt": datetime.now(timezone.utc).isoformat(),
             "source": "Apple 地图中国区（高德底图）",

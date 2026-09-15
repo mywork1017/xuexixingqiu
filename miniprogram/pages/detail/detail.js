@@ -14,6 +14,7 @@ const {
   sanitizePlaceDescription
 } = require('../../utils/place-utils');
 const { drawMapDotIcon } = require('../../utils/map-dot-icon');
+const PLACES_CACHE_KEY = 'places:nature-v4';
 
 function createCategoryTabs(activeFilter) {
   return CATEGORY_FILTER_OPTIONS.map((category) => ({
@@ -29,7 +30,7 @@ function withCategoryMeta(place) {
   return {
     ...place,
     displayAddress: getPlaceDisplayAddress(place),
-    displayPhotos: getPlaceDisplayPhotos(place).slice(0, 5),
+    displayPhotos: getPlaceDisplayPhotos(place).slice(0, place.category === '自然' ? 10 : 5),
     displayDescription,
     displayHours: getPlaceDisplayHours(place),
     markerStyle: categoryMeta.markerStyle,
@@ -51,7 +52,7 @@ Page({
 
   onLoad(options) {
     const placeId = decodeURIComponent(options.id || '');
-    const cachedPlaces = wx.getStorageSync('places');
+    const cachedPlaces = wx.getStorageSync(PLACES_CACHE_KEY);
     const places = Array.isArray(cachedPlaces) ? cachedPlaces : [];
     const normalizedPlaces = places.map(normalizePlace).filter((place) => !isExcludedPlaceType(place));
     const place = normalizedPlaces.find((item) => item.id === placeId);

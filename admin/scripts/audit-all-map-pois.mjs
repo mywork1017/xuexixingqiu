@@ -16,15 +16,25 @@ const { chromium } = require('playwright');
 const { PrismaClient } = await import('@prisma/client');
 const prisma = new PrismaClient();
 const projectRoot = path.resolve(import.meta.dirname, '../..');
-const reportDirectory = path.join(projectRoot, 'data', 'research', 'all-map-poi-audit-2026-08-09');
+const reportDirectory = path.resolve(projectRoot, process.env.MAP_AUDIT_REPORT_DIR || 'data/research/all-map-poi-audit-2026-08-09');
 const reportPath = path.join(reportDirectory, 'results.json');
 const chromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const minimumWaitMs = Number(process.env.MAP_INTERVAL_MIN_MS || 220);
 const maximumWaitMs = Number(process.env.MAP_INTERVAL_MAX_MS || 520);
 const batchSize = Number(process.env.MAP_AUDIT_BATCH_SIZE || 0);
+const cityPrefixes = (process.env.MAP_AUDIT_CITY_PREFIXES || '').split(',').map((item) => item.trim()).filter(Boolean);
+const categories = (process.env.MAP_AUDIT_CATEGORIES || '').split(',').map((item) => item.trim()).filter(Boolean);
+const forceRefresh = process.env.MAP_AUDIT_FORCE_REFRESH === '1';
+const preferPoi = process.env.MAP_AUDIT_PREFER_POI === '1';
+const poiMaxMovementMeters = Number(process.env.MAP_AUDIT_POI_MAX_MOVEMENT || 600);
+const shardCount = Math.max(1, Number(process.env.MAP_AUDIT_SHARD_COUNT || 1));
+const shardIndex = Number(process.env.MAP_AUDIT_SHARD_INDEX || 0);
 
-const places = await prisma.place.findMany({
-  where: { category: { in: ['图书馆', '食堂'] } },
+const allPlaces = await prisma.place.findMany({
+  where: {
+    category: { in: categories.length ? categories : ['图书馆', '食堂', '自然'] },
+    ...(cityPrefixes.length ? { OR: cityPrefixes.map((prefix) => ({ address: { startsWith: prefix } })) } : {})
+  },
   orderBy: { id: 'asc' },
   select: {
     id: true,
@@ -38,6 +48,7 @@ const places = await prisma.place.findMany({
     photos: { select: { id: true } }
   }
 });
+const places = allPlaces.filter((_, index) => index % shardCount === shardIndex);
 await prisma.$disconnect();
 await fs.mkdir(reportDirectory, { recursive: true });
 
@@ -45,7 +56,7 @@ let previous = { results: [] };
 try {
   previous = JSON.parse(await fs.readFile(reportPath, 'utf8'));
 } catch {}
-const resultById = new Map((previous.results || []).map((result) => [result.id, result]));
+const resultById = new Map(forceRefresh ? [] : (previous.results || []).map((result) => [result.id, result]));
 const remaining = places.filter((place) => !resultById.has(place.id));
 const queue = batchSize > 0 ? remaining.slice(0, batchSize) : remaining;
 
@@ -81,6 +92,16 @@ function nameRelated(first, second) {
   return Boolean(left && right && (left === right || left.includes(right) || right.includes(left)));
 }
 
+const subordinatePoiPattern = /(停车场|停车点|管理中心|生活区|办公区|公厕|卫生间|洗手间|出入口|入口|售票处|游客中心|码头|公交站|地铁站|充电站|服务中心|警务室|驿站|商店|餐厅|咖啡)/;
+
+function safeNameRelation(placeName, candidateName) {
+  const place = normalizeName(placeName);
+  const candidate = normalizeName(candidateName);
+  if (!place || !candidate || subordinatePoiPattern.test(candidateName)) return 0;
+  if (place === candidate) return 2;
+  return place.length >= 4 && candidate.length >= 4 && (place.includes(candidate) || candidate.includes(place)) ? 1 : 0;
+}
+
 function chooseAddressCandidate(place, candidates) {
   return candidates
     .map((candidate) => ({
@@ -101,12 +122,13 @@ function chooseNameCandidate(place, candidates) {
     .map((candidate) => ({
       ...candidate,
       movementMeters: Math.round(distanceMeters(place, candidate)),
-      district: extractDistrict(candidate.address)
+      district: extractDistrict(candidate.address),
+      nameRelation: safeNameRelation(place.name, candidate.name)
     }))
-    .filter((candidate) => nameRelated(place.name, candidate.name))
+    .filter((candidate) => candidate.nameRelation > 0)
     .filter((candidate) => !district || !candidate.district || district === candidate.district)
-    .filter((candidate) => candidate.movementMeters <= 600)
-    .sort((left, right) => left.movementMeters - right.movementMeters)[0] || null;
+    .filter((candidate) => candidate.movementMeters <= poiMaxMovementMeters)
+    .sort((left, right) => right.nameRelation - left.nameRelation || left.movementMeters - right.movementMeters)[0] || null;
 }
 
 async function saveReport() {
@@ -132,22 +154,36 @@ for (let index = 0; index < queue.length; index += 1) {
   try {
     const addressCandidates = await mapSearch(place.address, place);
     const addressMatch = chooseAddressCandidate(place, addressCandidates);
-    if (addressMatch) {
+    const poiQuery = `${place.name} ${extractDistrict(place.address)}`;
+    const poiCandidates = await mapSearch(poiQuery, place);
+    const poiMatch = chooseNameCandidate(place, poiCandidates);
+    if (preferPoi && poiMatch) {
+      result = {
+        ...place,
+        status: 'verified_poi',
+        candidate: poiMatch,
+        query: poiQuery,
+        addressCandidates,
+        poiCandidates
+      };
+    } else if (addressMatch) {
       result = {
         ...place,
         status: 'verified_address',
         candidate: addressMatch,
-        query: place.address
+        query: place.address,
+        addressCandidates,
+        poiCandidates
       };
     } else {
-      const poiCandidates = await mapSearch(`${place.name} ${extractDistrict(place.address)}`, place);
-      const poiMatch = chooseNameCandidate(place, poiCandidates);
       if (poiMatch) {
         result = {
           ...place,
           status: 'verified_poi',
           candidate: poiMatch,
-          query: `${place.name} ${extractDistrict(place.address)}`
+          query: poiQuery,
+          addressCandidates,
+          poiCandidates
         };
       } else if (!extractRoadNumber(place.address)) {
         const nearbyMatch = addressCandidates

@@ -10,14 +10,17 @@ const database = path.join(projectRoot, 'admin', 'prisma', 'dev.db');
 const publicRoot = path.join(projectRoot, 'admin', 'public');
 const outputDirectory = path.join(projectRoot, 'data', 'research', 'place-photo-corner-qa-active');
 const fullFrame = process.argv.includes('--full');
+const suzhouOnly = process.argv.includes('--suzhou');
+const targetNature = process.argv.includes('--target-nature');
 const resolvedOutputDirectory = fullFrame
-  ? path.join(projectRoot, 'data', 'research', 'place-photo-full-qa-active')
-  : outputDirectory;
+  ? path.join(projectRoot, 'data', 'research', targetNature ? 'target-nature-photo-full-qa-active' : suzhouOnly ? 'suzhou-place-photo-full-qa-active' : 'place-photo-full-qa-active')
+  : targetNature ? path.join(projectRoot, 'data', 'research', 'target-nature-photo-corner-qa-active') : outputDirectory;
 const photos = JSON.parse(execFileSync('sqlite3', [
   '-json',
   database,
   `SELECT pp.id, pp.placeId, p.name AS placeName, pp.url
    FROM PlacePhoto pp JOIN Place p ON p.id = pp.placeId
+   ${targetNature ? "WHERE p.category = '自然' AND (p.address LIKE '上海市%' OR p.address LIKE '苏州市%' OR p.address LIKE '苏州高新区%')" : suzhouOnly ? "WHERE p.name LIKE '苏州图书馆%' OR p.name LIKE '苏州书房%' OR pp.url LIKE '/uploads/suzhou-2026-08-16/%'" : ''}
    ORDER BY p.name, pp.sortOrder, pp.id`
 ], { encoding: 'utf8' }));
 

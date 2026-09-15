@@ -1,13 +1,15 @@
 const CATEGORY_OPTIONS = [
   '图书馆',
-  '食堂'
+  '食堂',
+  '自然'
 ];
 
 const CATEGORY_FILTER_OPTIONS = ['全部', ...CATEGORY_OPTIONS];
 
 const CATEGORY_ASSET_KEYS = {
   图书馆: 'tsg',
-  食堂: 'st'
+  食堂: 'st',
+  自然: 'zr'
 };
 
 const CATEGORY_META = {
@@ -22,10 +24,15 @@ const CATEGORY_META = {
     markerStyle: 'inverse',
     shortName: '食',
     assetKey: CATEGORY_ASSET_KEYS['食堂']
+  },
+  自然: {
+    color: '#4f7f58',
+    markerStyle: 'nature',
+    shortName: '自',
+    assetKey: CATEGORY_ASSET_KEYS['自然']
   }
 };
 
-const LOW_SCALE_THRESHOLD = 11;
 const EARTH_RADIUS_KM = 6371;
 const SELECTED_MARKER_Z_INDEX = 999;
 
@@ -87,7 +94,10 @@ function getPlaceDisplayHours(place) {
 }
 
 function getPlaceNavigationLabel(place) {
-  return normalizeCategory(place && place.category) === '食堂' ? '去吃饭' : '去学习';
+  const category = normalizeCategory(place && place.category);
+  if (category === '食堂') return '去吃饭';
+  if (category === '自然') return '去走走';
+  return '去学习';
 }
 
 function sanitizePlaceDescription(value) {
@@ -194,21 +204,27 @@ function getBoundsInsideVerticalOverlays(bounds, topOccludedRatio, bottomOcclude
   };
 }
 
-function shouldShowPlaceAtScale(place, scale) {
-  if (!scale || scale >= LOW_SCALE_THRESHOLD) {
-    return true;
-  }
+function limitDisplayPlaces(places, maxCount, pinnedPlaceIds = []) {
+  const limit = Math.floor(Number(maxCount));
+  if (!Number.isFinite(limit) || limit <= 0 || places.length <= limit) return places;
 
-  return place.priority === 'major' || place.category === '图书馆';
+  const pinnedIds = new Set(pinnedPlaceIds.filter(Boolean));
+  const pinnedPlaces = places.filter((place) => pinnedIds.has(place.id)).slice(0, limit);
+  const candidates = places.filter((place) => !pinnedIds.has(place.id));
+  const availableSlots = limit - pinnedPlaces.length;
+  const sampledIds = new Set(pinnedPlaces.map((place) => place.id));
+  for (let index = 0; index < availableSlots; index += 1) {
+    sampledIds.add(candidates[Math.floor((index * candidates.length) / availableSlots)].id);
+  }
+  return places.filter((place) => sampledIds.has(place.id));
 }
 
 function getDisplayPlaces(places, options = {}) {
   const normalizedPlaces = places.map(normalizePlace);
   const categoryFilteredPlaces = filterPlacesByCategories(normalizedPlaces, options.categories);
-
-  return categoryFilteredPlaces
-    .filter((place) => isPlaceInBounds(place, options.bounds))
-    .filter((place) => shouldShowPlaceAtScale(place, Number(options.scale)));
+  const visiblePlaces = categoryFilteredPlaces
+    .filter((place) => isPlaceInBounds(place, options.bounds));
+  return limitDisplayPlaces(visiblePlaces, options.maxCount, options.pinnedPlaceIds);
 }
 
 function getDefaultSelectedPlace(places, options = {}) {
@@ -393,7 +409,6 @@ module.exports = {
   CATEGORY_OPTIONS,
   CATEGORY_FILTER_OPTIONS,
   CATEGORY_META,
-  LOW_SCALE_THRESHOLD,
   filterPlaces,
   filterPlacesByCategories,
   getActiveCategoriesForFilter,
@@ -411,6 +426,7 @@ module.exports = {
   orderPlacesByProximity,
   isExcludedPlaceType,
   isPlaceInBounds,
+  limitDisplayPlaces,
   normalizeCategory,
   normalizeCategoryIconPaths,
   normalizePlace,

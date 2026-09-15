@@ -34,6 +34,7 @@ def parse_args():
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--category", choices=("图书馆", "食堂"))
+    parser.add_argument("--city", choices=("上海", "苏州"))
     parser.add_argument("--mode", choices=("base", "channels"), default="base")
     parser.add_argument(
         "--engine",
@@ -45,14 +46,21 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_places(database_path, category, offset, limit):
+def load_places(database_path, category, city, offset, limit):
     with sqlite3.connect(database_path) as connection:
         connection.row_factory = sqlite3.Row
         query = "SELECT id, name, category FROM Place"
         params = []
+        conditions = []
         if category:
-            query += " WHERE category = ?"
+            conditions.append("category = ?")
             params.append(category)
+        if city == "上海":
+            conditions.append("address LIKE '上海市%'")
+        elif city == "苏州":
+            conditions.append("(address LIKE '苏州市%' OR address LIKE '苏州高新区%')")
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
         query += " ORDER BY rowid LIMIT ? OFFSET ?"
         params.extend((limit if limit > 0 else -1, offset))
         return [dict(row) for row in connection.execute(query, params)]
@@ -180,7 +188,7 @@ async def crawl(args):
     output_dir = Path(args.output_dir)
     raw_dir = output_dir / "raw-search-pages"
     raw_dir.mkdir(parents=True, exist_ok=True)
-    places = load_places(args.database, args.category, args.offset, args.limit)
+    places = load_places(args.database, args.category, args.city, args.offset, args.limit)
 
     jobs = []
     for place in places:

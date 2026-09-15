@@ -2,9 +2,9 @@
   "appid": "wx9e24d32ac69faf81",
   "compileType": "miniprogram",
   "miniprogramRoot": "./",
-  "cloudfunctionRoot": "cloudfunctions/",
+  "cloudfunctionRoot": "../cloudfunctions/",
   "libVersion": "3.15.2",
-  "projectname": "通仔的学习星球",
+  "projectname": "通仔的星球",
   "condition": {},
   "setting": {
     "urlCheck": false,

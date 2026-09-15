@@ -5,6 +5,7 @@ import argparse
 import asyncio
 import hashlib
 import json
+import os
 import re
 import sqlite3
 from pathlib import Path
@@ -25,7 +26,8 @@ def parse_args():
     parser.add_argument("--research-dir", default=DEFAULT_RESEARCH_DIR)
     parser.add_argument("--phase", choices=("search", "platforms"), required=True)
     parser.add_argument("--channels", default="")
-    parser.add_argument("--category", choices=("图书馆", "食堂"))
+    parser.add_argument("--category", choices=("图书馆", "食堂", "自然"))
+    parser.add_argument("--city", choices=("上海", "苏州", "嘉兴", "南通", "无锡", "镇江"))
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--batch-size", type=int, default=12)
@@ -34,17 +36,29 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_places(database, category, offset, limit):
+def load_places(database, category, city, offset, limit):
     query = "SELECT id, name, category, address, latitude, longitude FROM Place"
     params = []
+    conditions = []
     if category:
-        query += " WHERE category = ?"
+        conditions.append("category = ?")
         params.append(category)
+    if city == "上海":
+        conditions.append("address LIKE '上海市%'")
+    elif city == "苏州":
+        conditions.append("(address LIKE '苏州市%' OR address LIKE '苏州高新区%')")
+    elif city in ("嘉兴", "南通", "无锡", "镇江"):
+        conditions.append("address LIKE ?")
+        params.append(f"{city}市%")
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
     query += " ORDER BY rowid LIMIT ? OFFSET ?"
     params.extend((limit if limit > 0 else -1, offset))
     with sqlite3.connect(database) as connection:
         connection.row_factory = sqlite3.Row
-        return [dict(row) for row in connection.execute(query, params)]
+        rows = [dict(row) for row in connection.execute(query, params)]
+    requested_ids = {item for item in os.environ.get("PLACE_IDS", "").split(",") if item}
+    return [row for row in rows if not requested_ids or row["id"] in requested_ids]
 
 
 def search_name(name):
@@ -56,6 +70,8 @@ def rich_query(place):
     name = search_name(place["name"])
     if place["category"] == "食堂":
         return f'"{name}" 地址 营业时间 厕所 饮水 电梯 无障碍 图片 实景 小红书 大众点评'
+    if place["category"] == "自然":
+        return f'"{name}" 地址 开放时间 入口 步道 草坪 亲水 厕所 无障碍 停车 图片 实景 小红书 大众点评'
     return f'"{name}" 地址 开放时间 WiFi 插座 厕所 饮水 电梯 无障碍 停车 图片 实景 小红书 大众点评'
 
 
@@ -120,17 +136,21 @@ def request_key(url):
 
 def save_result(bundle_dir, job, result):
     bundle_dir.mkdir(parents=True, exist_ok=True)
-    (bundle_dir / "raw.html").write_text(result.html or "", encoding="utf-8")
-    (bundle_dir / "cleaned.html").write_text(result.cleaned_html or "", encoding="utf-8")
-    if isinstance(result.fit_html, str) and result.fit_html:
-        (bundle_dir / "fit.html").write_text(result.fit_html, encoding="utf-8")
+    raw_html = getattr(result, "html", "") or ""
+    cleaned_html = getattr(result, "cleaned_html", "") or ""
+    fit_html = getattr(result, "fit_html", "") or ""
+    (bundle_dir / "raw.html").write_text(raw_html, encoding="utf-8")
+    (bundle_dir / "cleaned.html").write_text(cleaned_html, encoding="utf-8")
+    if isinstance(fit_html, str) and fit_html:
+        (bundle_dir / "fit.html").write_text(fit_html, encoding="utf-8")
     markdown = markdown_parts(result)
     for key, value in markdown.items():
         suffix = "md" if key != "fit_html" else "html"
         (bundle_dir / f"{key}.{suffix}").write_text(value, encoding="utf-8")
-    if isinstance(result.extracted_content, str) and result.extracted_content:
+    extracted_content = getattr(result, "extracted_content", "") or ""
+    if isinstance(extracted_content, str) and extracted_content:
         (bundle_dir / "extracted-content.txt").write_text(
-            result.extracted_content, encoding="utf-8"
+            extracted_content, encoding="utf-8"
         )
     payload = {
         "place": job["place"],
@@ -140,25 +160,25 @@ def save_result(bundle_dir, job, result):
         "bundleDir": str(bundle_dir),
         "query": job["query"],
         "requestedUrl": job["url"],
-        "resultUrl": result.url,
-        "redirectedUrl": result.redirected_url,
-        "redirectedStatusCode": result.redirected_status_code,
-        "success": bool(result.success),
-        "statusCode": result.status_code,
-        "error": result.error_message or "",
-        "metadata": json_safe(result.metadata or {}),
-        "links": json_safe(result.links or {}),
-        "media": json_safe(result.media or {}),
-        "downloadedFiles": json_safe(result.downloaded_files or []),
-        "responseHeaders": json_safe(result.response_headers or {}),
-        "networkRequests": json_safe(result.network_requests or []),
-        "consoleMessages": json_safe(result.console_messages or []),
-        "tables": json_safe(result.tables or []),
-        "cacheStatus": str(result.cache_status or ""),
-        "crawlStats": json_safe(result.crawl_stats or {}),
+        "resultUrl": getattr(result, "url", job["url"]),
+        "redirectedUrl": getattr(result, "redirected_url", ""),
+        "redirectedStatusCode": getattr(result, "redirected_status_code", 0),
+        "success": bool(getattr(result, "success", False)),
+        "statusCode": getattr(result, "status_code", 0),
+        "error": getattr(result, "error_message", "") or "",
+        "metadata": json_safe(getattr(result, "metadata", {}) or {}),
+        "links": json_safe(getattr(result, "links", {}) or {}),
+        "media": json_safe(getattr(result, "media", {}) or {}),
+        "downloadedFiles": json_safe(getattr(result, "downloaded_files", []) or []),
+        "responseHeaders": json_safe(getattr(result, "response_headers", {}) or {}),
+        "networkRequests": json_safe(getattr(result, "network_requests", []) or []),
+        "consoleMessages": json_safe(getattr(result, "console_messages", []) or []),
+        "tables": json_safe(getattr(result, "tables", []) or []),
+        "cacheStatus": str(getattr(result, "cache_status", "") or ""),
+        "crawlStats": json_safe(getattr(result, "crawl_stats", {}) or {}),
         "fileLengths": {
-            "rawHtml": len(result.html or ""),
-            "cleanedHtml": len(result.cleaned_html or ""),
+            "rawHtml": len(raw_html),
+            "cleanedHtml": len(cleaned_html),
             **{key: len(value) for key, value in markdown.items()},
         },
     }
@@ -201,7 +221,7 @@ async def crawl(args):
     allowed = set(SEARCH_CHANNELS if args.phase == "search" else PLATFORM_CHANNELS)
     if not channels or any(channel not in allowed for channel in channels):
         raise ValueError(f"channels for {args.phase} must come from {sorted(allowed)}")
-    places = load_places(args.database, args.category, args.offset, args.limit)
+    places = load_places(args.database, args.category, args.city, args.offset, args.limit)
     jobs = []
     for place in places:
         for channel in channels:
@@ -245,7 +265,6 @@ async def crawl(args):
         enable_stealth=True,
         viewport_width=1280,
         viewport_height=900,
-        max_pages_before_recycle=80,
     )
     records = []
     async with AsyncWebCrawler(config=browser_config) as crawler:
@@ -297,12 +316,13 @@ async def crawl(args):
     manifest_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = manifest_dir / (
         f"{args.phase}-{','.join(channels)}-{args.attempt_tag}-{args.category or 'all'}-"
-        f"{args.offset}-{len(places)}.json"
+        f"{args.city or 'all-cities'}-{args.offset}-{len(places)}.json"
     )
     manifest_path.write_text(json.dumps({
         "phase": args.phase,
         "channels": channels,
         "attemptTag": args.attempt_tag,
+        "city": args.city,
         "placeCount": len(places),
         "scheduledCount": len(jobs),
         "savedCount": len(records),

@@ -252,7 +252,7 @@ test('map and detail navigation geometry follows the current interaction rules',
   assert.match(mapJs, /scale: 13/);
   assert.match(mapJs, /contentOffset = 16/);
   assert.match(mapWxml, /translateY\(\{\{navMetrics\.contentOffset\}\}px\)/);
-  assert.match(mapWxss, /\.map-actions\.with-sheet \{[^}]*bottom: calc\(366rpx[^}]*right: 16rpx/);
+  assert.match(mapWxss, /\.map-actions\.with-sheet \{[^}]*bottom: calc\(322rpx[^}]*right: 16rpx/);
   assert.match(mapWxss, /\.sheet-action\.secondary-button \{[^}]*background: #f2f2f7;[^}]*border: 0/);
   assert.match(detailWxml, /show-scrollbar="\{\{false\}\}"/);
   assert.match(detailWxml, /wx:if="\{\{place\.displayPhotos\.length\}\}"/);
@@ -263,7 +263,7 @@ test('map and detail navigation geometry follows the current interaction rules',
   assert.match(detailWxml, /class="cover-photo"[^>]*lazy-load="\{\{false\}\}"[^>]*fade-in="\{\{true\}\}"/);
   assert.match(detailWxml, /class="photo-swiper"[\s\S]*indicator-dots="\{\{true\}\}"[\s\S]*autoplay="\{\{true\}\}"[\s\S]*interval="5000"/);
   assert.match(detailWxml, /<image wx:else class="cover-photo"/);
-  assert.match(detailJs, /getPlaceDisplayPhotos\(place\)\.slice\(0, 5\)/);
+  assert.match(detailJs, /getPlaceDisplayPhotos\(place\)\.slice\(0, place\.category === '自然' \? 10 : 5\)/);
   assert.match(detailJs, /sanitizePlaceDescription\(place\.description\) \|\| '—'/);
   assert.doesNotMatch(detailJs, /hasDescription/);
   assert.match(detailWxss, /\.photo-panel \{[^}]*height: 622rpx/);
@@ -300,19 +300,22 @@ test('map cards swipe through visible places, loop with multiple places, and loc
   assert.match(mapWxml, /catchtap="goToDetail"/);
   assert.match(mapWxml, /\{\{place\.distanceText \|\| place\.navigationLabel\}\}/);
   assert.match(mapWxml, /src="\/assets\/actions\/map\/ditu_kapian_dh\.png"/);
-  assert.match(mapWxss, /\.bottom-sheet \{[^}]*height: 326rpx;[^}]*\}/);
+  assert.match(mapWxss, /\.bottom-sheet \{[^}]*height: 282rpx;[^}]*\}/);
   assert.match(mapWxss, /\.sheet-card \{[^}]*background: #ffffff;[^}]*border-radius: 32rpx;[^}]*margin: 0 8rpx;[^}]*padding: 32rpx 24rpx 24rpx;[^}]*\}/);
   assert.match(mapJs, /onPlaceCardChange\(event\)/);
   assert.match(mapJs, /selectedPlaceIndex = Number\(event\.detail\.current\)/);
   assert.match(mapJs, /selectedPlace: this\.withDisplayState\(selectedPlace\)/);
 });
 
-test('map cards and detail pages bind the same display address and hours fields', () => {
+test('map cards show centered names and addresses without hours', () => {
   const mapWxml = fs.readFileSync(path.join(ROOT_DIR, 'miniprogram/pages/map/map.wxml'), 'utf8');
+  const mapWxss = fs.readFileSync(path.join(ROOT_DIR, 'miniprogram/pages/map/map.wxss'), 'utf8');
   const detailWxml = fs.readFileSync(path.join(ROOT_DIR, 'miniprogram/pages/detail/detail.wxml'), 'utf8');
 
-  for (const source of [mapWxml, detailWxml]) {
-    assert.match(source, /\{\{place\.displayAddress\}\}/);
-    assert.match(source, /\{\{place\.displayHours\}\}/);
-  }
+  assert.match(mapWxml, /\{\{place\.displayAddress\}\}/);
+  assert.doesNotMatch(mapWxml, /\{\{place\.displayHours\}\}/);
+  assert.match(mapWxss, /\.sheet-title \{[^}]*text-align: center/);
+  assert.match(mapWxss, /\.sheet-meta-row \{[^}]*justify-content: center/);
+  assert.match(detailWxml, /\{\{place\.displayAddress\}\}/);
+  assert.match(detailWxml, /\{\{place\.displayHours\}\}/);
 });

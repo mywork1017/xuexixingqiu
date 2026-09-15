@@ -46,8 +46,12 @@ const SELECTED_MARKER_BREATH_CYCLE_MS = 1800;
 const SELECTED_MARKER_MIN_SIZE = 39;
 const SELECTED_MARKER_MAX_SIZE = 47;
 const CARD_SWIPE_DURATION_MS = 200;
-const BOTTOM_SHEET_OCCLUDED_RPX = 342;
+const BOTTOM_SHEET_OCCLUDED_RPX = 298;
 const MARKER_EDGE_GUARD_PX = 28;
+const PLACES_CACHE_KEY = 'places:nature-v4';
+const PLACE_PAGE_SIZE = 200;
+const MAX_PLACE_PAGE_COUNT = 50;
+const MAX_VISIBLE_PLACE_COUNT = 500;
 function createCategoryTabs(activeFilter) {
   return CATEGORY_FILTER_OPTIONS.map((category) => ({
     name: category,
@@ -179,6 +183,10 @@ Page({
   },
 
   onLoad() {
+    const hasCachedPlaces = this.refreshFromCache();
+    if (wx.cloud && typeof wx.nextTick === 'function') {
+      wx.nextTick(() => this.startPlaceLoadAnimation());
+    }
     Promise.all([
       Promise.all([
         this.prepareMapDotIcons().catch(() => null),
@@ -187,7 +195,8 @@ Page({
       this.resolveInitialSelectionLocation()
     ]).then(() => {
       this.syncMarkers([]);
-      this.loadPlaces();
+      if (hasCachedPlaces) this.updateVisibleMarkers();
+      this.loadPlaces({ hasCachedPlaces });
     });
   },
 
@@ -200,6 +209,7 @@ Page({
 
   onHide() {
     this.stopSelectedMarkerBreathing();
+    this.placeLoadAnimationActive = false;
     this.stopUserLocationSearchSpin(true);
     this.stopUserLocationDrop(true);
     this.stopUserLocationJump(true);
@@ -207,6 +217,7 @@ Page({
 
   onUnload() {
     this.stopSelectedMarkerBreathing();
+    this.placeLoadAnimationActive = false;
     this.stopUserLocationSearchSpin();
     this.stopUserLocationDrop();
     this.stopUserLocationJump();
@@ -362,52 +373,114 @@ Page({
   },
 
   refreshFromCache() {
-    const places = wx.getStorageSync('places');
+    const places = wx.getStorageSync(PLACES_CACHE_KEY);
     if (Array.isArray(places) && places.length) {
-      this.applyPlaces(places);
+      this.applyPlaces(places, '', { preserveCenter: true, writeCache: false });
+      return true;
     }
+    return false;
   },
 
-  loadPlaces() {
+  callGetPlaces(data) {
+    return new Promise((resolve, reject) => {
+      wx.cloud.callFunction({
+        name: 'getPlaces',
+        data,
+        success: (res) => resolve(res.result || {}),
+        fail: reject
+      });
+    });
+  },
+
+  getCurrentMapRegion() {
+    return new Promise((resolve, reject) => {
+      wx.createMapContext('studyMap').getRegion({ success: resolve, fail: reject });
+    });
+  },
+
+  loadVisiblePlaces() {
+    return this.getCurrentMapRegion()
+      .then((bounds) => this.callGetPlaces({ mode: 'bounds', bounds, limit: MAX_VISIBLE_PLACE_COUNT }))
+      .then((result) => {
+        const places = Array.isArray(result.data) ? result.data : [];
+        if (places.length) {
+          this.applyPlaces(places, '', { preserveCenter: true });
+        }
+        return places;
+      });
+  },
+
+  loadAllPlacePages(offset = 0, collected = [], pageCount = 0) {
+    if (pageCount >= MAX_PLACE_PAGE_COUNT) {
+      return Promise.reject(new Error('地点分页数超过安全上限'));
+    }
+    return this.callGetPlaces({ mode: 'page', offset, limit: PLACE_PAGE_SIZE }).then((result) => {
+      const page = Array.isArray(result.data) ? result.data : [];
+      const next = collected.concat(page);
+      if (!result.hasMore || !page.length) return next;
+      return this.loadAllPlacePages(Number(result.nextOffset || offset + page.length), next, pageCount + 1);
+    });
+  },
+
+  loadPlaces(options = {}) {
+    const hasCachedPlaces = Boolean(options.hasCachedPlaces || this.data.places.length);
     this.setData({ loading: true, loadError: '' });
 
     if (wx.cloud) {
-      wx.cloud.callFunction({
-        name: 'getPlaces',
-        data: {},
-        success: (res) => {
-          const cloudPlaces = res.result && Array.isArray(res.result.data) ? res.result.data : [];
-          this.applyPlaces(cloudPlaces, cloudPlaces.length ? '' : '后台暂无已发布地点');
-        },
-        fail: () => {
-          this.applyPlaces([], '地点加载失败，请稍后重试');
-        },
-        complete: () => {
+      this.startPlaceLoadAnimation();
+      const visibleFirst = hasCachedPlaces ? Promise.resolve([]) : this.loadVisiblePlaces().catch(() => []);
+      visibleFirst
+        .then(() => this.loadAllPlacePages())
+        .then((cloudPlaces) => {
+          if (cloudPlaces.length) {
+            this.applyPlaces(cloudPlaces, '', { preserveCenter: true });
+          } else if (!hasCachedPlaces) {
+            this.applyPlaces([], '后台暂无已发布地点', { writeCache: false });
+          }
+        })
+        .catch(() => {
+          if (!hasCachedPlaces) {
+            this.applyPlaces([], '地点加载失败，请稍后重试', { writeCache: false });
+          }
+        })
+        .then(() => {
           this.setData({ loading: false }, () => {
+            this.finishPlaceLoadAnimation();
             this.updateVisibleMarkers();
           });
-        }
-      });
+        });
       return;
     }
 
-    this.applyPlaces([], '当前环境无法连接地点后台');
+    if (!hasCachedPlaces) this.applyPlaces([], '当前环境无法连接地点后台', { writeCache: false });
     this.setData({ loading: false }, () => {
+      this.finishPlaceLoadAnimation();
       this.updateVisibleMarkers();
     });
   },
 
-  applyPlaces(rawPlaces, loadError) {
-    const places = rawPlaces.map(normalizePlace).filter((place) => !isExcludedPlaceType(place));
-    const selectedPlace = getNearestPlace(places, this.data.initialSelectionLocation);
+  applyPlaces(rawPlaces, loadError, options = {}) {
+    const placeById = new Map();
+    rawPlaces.map(normalizePlace)
+      .filter((place) => !isExcludedPlaceType(place))
+      .forEach((place) => placeById.set(place.id, place));
+    const places = [...placeById.values()];
+    const retainedSelection = this.data.selectedPlace
+      ? places.find((place) => place.id === this.data.selectedPlace.id)
+      : null;
+    const selectedPlace = retainedSelection || getNearestPlace(places, this.data.initialSelectionLocation);
     const keepUserLocationCenter = Boolean(this.keepInitialUserLocationCenter && this.data.userLocation);
     this.keepInitialUserLocationCenter = false;
 
-    wx.setStorageSync('places', places);
+    if (options.writeCache !== false && places.length) wx.setStorageSync(PLACES_CACHE_KEY, places);
     this.setData({
       places,
-      latitude: keepUserLocationCenter ? this.data.userLocation.latitude : (selectedPlace ? selectedPlace.latitude : this.data.latitude),
-      longitude: keepUserLocationCenter ? this.data.userLocation.longitude : (selectedPlace ? selectedPlace.longitude : this.data.longitude),
+      latitude: keepUserLocationCenter
+        ? this.data.userLocation.latitude
+        : (options.preserveCenter ? this.data.latitude : (selectedPlace ? selectedPlace.latitude : this.data.latitude)),
+      longitude: keepUserLocationCenter
+        ? this.data.userLocation.longitude
+        : (options.preserveCenter ? this.data.longitude : (selectedPlace ? selectedPlace.longitude : this.data.longitude)),
       selectedPlace: keepUserLocationCenter ? null : this.withDisplayState(selectedPlace),
       loadError: loadError || ''
     }, () => {
@@ -472,7 +545,16 @@ Page({
   setUserLocationMarkerAlpha(alpha, additionalUpdates = {}, callback) {
     const markerIndex = this.data.markers.findIndex((marker) => marker.markerType === 'user-location');
     const updates = { userLocationMarkerAlpha: alpha, ...additionalUpdates };
-    if (markerIndex >= 0) {
+    const changesAnimationVisibility = Object.prototype.hasOwnProperty.call(
+      additionalUpdates,
+      'userLocationAnimationVisible'
+    );
+    if (changesAnimationVisibility) {
+      updates.markers = this.createMarkers(this.data.displayPlaces, {
+        userLocationAnimationVisible: Boolean(additionalUpdates.userLocationAnimationVisible),
+        userLocationMarkerAlpha: alpha
+      });
+    } else if (markerIndex >= 0) {
       updates[`markers[${markerIndex}].alpha`] = alpha;
     }
     this.setData(updates, callback);
@@ -490,7 +572,10 @@ Page({
       .fields({ node: true, size: true })
       .exec((result) => {
         const canvas = result && result[0] && result[0].node;
-        if (!canvas) return;
+        if (!canvas) {
+          callback(null, null);
+          return;
+        }
         const windowInfo = typeof wx.getWindowInfo === 'function'
           ? wx.getWindowInfo()
           : wx.getSystemInfoSync();
@@ -571,6 +656,18 @@ Page({
     }
   },
 
+  startPlaceLoadAnimation() {
+    if (this.placeLoadAnimationActive) return;
+    this.placeLoadAnimationActive = true;
+    this.startUserLocationSearchSpin();
+  },
+
+  finishPlaceLoadAnimation() {
+    if (!this.placeLoadAnimationActive) return;
+    this.placeLoadAnimationActive = false;
+    this.requestUserLocationSearchFinish();
+  },
+
   startUserLocationSearchSpin() {
     this.stopUserLocationDrop();
     this.stopUserLocationJump();
@@ -593,6 +690,10 @@ Page({
 
     this.ensureUserLocationAnimationCanvas((canvas, context) => {
       if (runId !== this.userLocationAnimationRunId) return;
+      if (!canvas || !context) {
+        this.stopUserLocationCanvasAnimation(true);
+        return;
+      }
       const canvasX = point.x - (USER_LOCATION_MARKER_WIDTH / 2);
       const canvasY = point.y - (USER_LOCATION_MARKER_HEIGHT * USER_LOCATION_ICON_ANCHOR_Y);
       drawUserLocationFrameToContext(context, { ...baseFrame, alpha: 0, spinYRotation: 0 });
@@ -623,7 +724,11 @@ Page({
           if (shouldFinish) {
             this.userLocationAnimationFrame = null;
             this.userLocationSearchSpinComplete = true;
-            this.tryStartUserLocationDrop();
+            if (this.pendingUserLocationDrop) {
+              this.tryStartUserLocationDrop();
+            } else {
+              this.finishUserLocationAnimation(runId);
+            }
             return;
           }
           this.requestUserLocationAnimationFrame(render);
@@ -676,6 +781,10 @@ Page({
       if (runId !== this.userLocationAnimationRunId) return;
       this.ensureUserLocationAnimationCanvas((canvas, context) => {
         if (runId !== this.userLocationAnimationRunId) return;
+        if (!canvas || !context) {
+          this.stopUserLocationCanvasAnimation(true);
+          return;
+        }
         const canvasX = point.x - (USER_LOCATION_MARKER_WIDTH / 2);
         const canvasY = point.y - (USER_LOCATION_MARKER_HEIGHT * USER_LOCATION_ICON_ANCHOR_Y);
         drawUserLocationFrameToContext(context, interpolateUserLocationFrame(frames, 0));
@@ -749,7 +858,7 @@ Page({
     this.startUserLocationCanvasAnimation(USER_LOCATION_JUMP_FRAMES, 'jump');
   },
 
-  createMarkers(displayPlaces) {
+  createMarkers(displayPlaces, overrides = {}) {
     const markerPlaceIds = new Set(this.data.markerPlaceIds);
     const markerPlaces = displayPlaces.filter((place) => markerPlaceIds.has(place.id));
     const markers = placesToMarkers(markerPlaces, {
@@ -759,7 +868,13 @@ Page({
       allPlaceIds: this.data.places.map((place) => place.id)
     });
 
-    if (this.data.userLocation && this.data.userLocationIconPath) {
+    const animationVisible = Object.prototype.hasOwnProperty.call(overrides, 'userLocationAnimationVisible')
+      ? overrides.userLocationAnimationVisible
+      : this.data.userLocationAnimationVisible;
+    const markerAlpha = Object.prototype.hasOwnProperty.call(overrides, 'userLocationMarkerAlpha')
+      ? overrides.userLocationMarkerAlpha
+      : this.data.userLocationMarkerAlpha;
+    if (this.data.userLocation && this.data.userLocationIconPath && !animationVisible) {
       return [{
         id: 900000,
         markerType: 'user-location',
@@ -769,7 +884,7 @@ Page({
         width: USER_LOCATION_MARKER_WIDTH,
         height: USER_LOCATION_MARKER_HEIGHT,
         anchor: { x: 0.5, y: USER_LOCATION_ICON_ANCHOR_Y },
-        alpha: this.data.userLocationMarkerAlpha,
+        alpha: markerAlpha,
         zIndex: USER_LOCATION_MARKER_Z_INDEX
       }, ...markers];
     }
@@ -912,7 +1027,7 @@ Page({
         this.syncMarkers(displayPlaces);
       });
     };
-    const applyRegion = (scale) => {
+    const applyRegion = () => {
       map.getRegion({
         success: (region) => {
           const cardWillShow = Boolean(this.data.selectedPlace || this.shouldAutoSelectVisiblePlace);
@@ -925,33 +1040,22 @@ Page({
           const visiblePlaces = getDisplayPlaces(this.data.places, {
             categories: this.data.activeCategories,
             bounds: markerBounds,
-            scale
+            maxCount: MAX_VISIBLE_PLACE_COUNT,
+            pinnedPlaceIds: [this.data.selectedPlace && this.data.selectedPlace.id]
           });
           applyVisiblePlaces(visiblePlaces, region);
         },
         fail: () => {
           const visiblePlaces = getDisplayPlaces(this.data.places, {
             categories: this.data.activeCategories,
-            scale
+            maxCount: MAX_VISIBLE_PLACE_COUNT,
+            pinnedPlaceIds: [this.data.selectedPlace && this.data.selectedPlace.id]
           });
           applyVisiblePlaces(visiblePlaces);
         }
       });
     };
-
-    if (typeof map.getScale === 'function') {
-      map.getScale({
-        success: (res) => {
-          applyRegion(Number(res.scale || this.data.scale));
-        },
-        fail: () => {
-          applyRegion(this.data.scale);
-        }
-      });
-      return;
-    }
-
-    applyRegion(this.data.scale);
+    applyRegion();
   },
 
   moveToUserLocation() {

@@ -38,7 +38,9 @@ def parse_args():
     parser.add_argument("--research-dir", default="data/research/place-photo-crawl-2026-08-10")
     parser.add_argument("--output-root", default="")
     parser.add_argument("--report", default="data/research/place-photo-crawl-2026-08-10/prepare-report.json")
-    parser.add_argument("--max-per-place", type=int, default=5)
+    parser.add_argument("--max-per-place", type=int, default=10)
+    parser.add_argument("--min-short-side", type=int, default=640)
+    parser.add_argument("--candidate-factor", type=int, default=8)
     parser.add_argument("--concurrency", type=int, default=16)
     parser.add_argument("--apply", action="store_true")
     return parser.parse_args()
@@ -171,7 +173,7 @@ def load_state(database):
     with sqlite3.connect(database) as connection:
         connection.row_factory = sqlite3.Row
         places = {row["id"]: dict(row) for row in connection.execute(
-            "SELECT id, name, category FROM Place WHERE category IN ('图书馆', '食堂')"
+            "SELECT id, name, category FROM Place WHERE category IN ('图书馆', '食堂', '自然')"
         )}
         counts = defaultdict(int)
         next_orders = defaultdict(int)
@@ -197,12 +199,12 @@ def hamming(left, right):
     return (left ^ right).bit_count()
 
 
-def prepare_image(data):
+def prepare_image(data, min_short_side):
     with Image.open(io.BytesIO(data)) as source:
         source.load()
         image = ImageOps.exif_transpose(source).convert("RGB")
     width, height = image.size
-    if min(width, height) < 420 or max(width, height) / min(width, height) > 3.2:
+    if min(width, height) < min_short_side or max(width, height) / min(width, height) > 3.2:
         raise ValueError(f"unsupported dimensions {width}x{height}")
     if image.resize((64, 64)).entropy() < 3.2:
         raise ValueError("low visual entropy")
@@ -210,7 +212,9 @@ def prepare_image(data):
     output = ImageOps.fit(image, (1024, 1024), method=Image.Resampling.LANCZOS)
     buffer = io.BytesIO()
     output.save(buffer, "WEBP", quality=86, method=6)
-    return buffer.getvalue(), width, height, fingerprint
+    original = io.BytesIO()
+    image.save(original, "WEBP", quality=92, method=6)
+    return buffer.getvalue(), original.getvalue(), width, height, fingerprint
 
 
 async def download_candidates(args, candidates_by_place, places, existing_counts):
@@ -233,10 +237,12 @@ async def download_candidates(args, candidates_by_place, places, existing_counts
                         data = await response.read()
                     if len(data) > 20 * 1024 * 1024:
                         raise ValueError("file too large")
-                    output, width, height, fingerprint = await asyncio.to_thread(prepare_image, data)
-                    return place_id, candidate, output, width, height, fingerprint, ""
+                    output, original, width, height, fingerprint = await asyncio.to_thread(
+                        prepare_image, data, args.min_short_side
+                    )
+                    return place_id, candidate, output, original, width, height, fingerprint, ""
                 except Exception as error:
-                    return place_id, candidate, b"", 0, 0, 0, str(error)
+                    return place_id, candidate, b"", b"", 0, 0, 0, str(error)
 
         async def process_place(place_id, candidates):
             slots = max(0, args.max_per_place - existing_counts[place_id])
@@ -251,15 +257,15 @@ async def download_candidates(args, candidates_by_place, places, existing_counts
                         interleaved.append(by_channel[channel].pop(0))
             results = await asyncio.gather(*(
                 fetch(place_id, candidate)
-                for candidate in interleaved[:max(18, slots * 3)]
+                for candidate in interleaved[:max(24, slots * args.candidate_factor)]
             ))
             valid_by_channel = defaultdict(list)
-            for _, candidate, output, width, height, fingerprint, error in results:
+            for _, candidate, output, original, width, height, fingerprint, error in results:
                 if error:
                     errors.append({"placeId": place_id, "url": candidate["url"], "error": error})
                     continue
                 valid_by_channel[candidate["channel"]].append({
-                    **candidate, "data": output, "width": width,
+                    **candidate, "data": output, "originalData": original, "width": width,
                     "height": height, "dhash": fingerprint,
                 })
             ordered = []
@@ -298,11 +304,16 @@ def save_and_apply(args, prepared, places, existing_counts, next_orders):
         for offset, image in enumerate(images, start=1):
             path = directory / f"{start + offset:02d}.webp"
             path.write_bytes(image.pop("data"))
+            original_directory = output_root / "_originals" / place_id
+            original_directory.mkdir(parents=True, exist_ok=True)
+            original_path = original_directory / f"{start + offset:02d}.webp"
+            original_path.write_bytes(image.pop("originalData"))
             public_url = "/" + str(path.relative_to("admin/public")) if args.apply else str(path)
             source_url = image.pop("url")
             additions.append({**image, "sourceUrl": source_url,
                               "id": f"webphoto_{uuid.uuid4().hex}", "placeId": place_id,
                               "placeName": places[place_id]["name"], "url": public_url,
+                              "originalPath": str(original_path),
                               "sortOrder": start + offset - 1, "createdAt": created_at})
     backup = ""
     if args.apply and additions:
@@ -332,7 +343,7 @@ async def main(args):
     places, existing_counts, next_orders, _ = load_state(args.database)
     candidates_by_place = defaultdict(list)
     seen = defaultdict(set)
-    for path in sorted(Path(args.research_dir).glob("pages/**/result.json")):
+    for path in sorted(Path(args.research_dir).glob("**/pages/**/result.json")):
         place, candidates = extract_candidates(path)
         place_id = place.get("id")
         if place_id not in places:
@@ -350,6 +361,8 @@ async def main(args):
     additions, backup = save_and_apply(args, prepared, places, existing_counts, next_orders)
     report = {
         "applied": args.apply, "maxPerPlace": args.max_per_place,
+        "minShortSide": args.min_short_side,
+        "candidateFactor": args.candidate_factor,
         "candidatePlaces": len(candidates_by_place),
         "candidateCount": sum(map(len, candidates_by_place.values())),
         "preparedPlaces": len(prepared), "preparedCount": len(additions),

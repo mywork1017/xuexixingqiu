@@ -7,6 +7,7 @@ import hashlib
 import json
 import re
 import sqlite3
+import os
 from pathlib import Path
 from urllib.parse import quote_plus, urlsplit, parse_qsl
 
@@ -21,28 +22,49 @@ def parse_args():
     parser.add_argument("--database", default="admin/prisma/dev.db")
     parser.add_argument("--research-dir", default="data/research/place-photo-crawl-2026-08-10")
     parser.add_argument("--channels", default=",".join(CHANNELS))
-    parser.add_argument("--category", choices=("图书馆", "食堂"))
+    parser.add_argument("--category", choices=("图书馆", "食堂", "自然"))
+    parser.add_argument("--city", choices=("上海", "苏州", "嘉兴", "南通", "无锡", "镇江"))
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--refresh", action="store_true")
+    parser.add_argument("--photoless-only", action="store_true")
+    parser.add_argument("--query-mode", choices=("scenic", "address", "community"), default="scenic")
     return parser.parse_args()
 
 
-def load_places(database, category, offset, limit):
+def load_places(database, category, city, offset, limit, photoless_only=False):
     query = """
         SELECT p.id, p.name, p.category, p.address, COUNT(ph.id) AS photoCount
         FROM Place p LEFT JOIN PlacePhoto ph ON ph.placeId = p.id
     """
     params = []
+    conditions = []
     if category:
-        query += " WHERE p.category = ?"
+        conditions.append("p.category = ?")
         params.append(category)
-    query += " GROUP BY p.id HAVING photoCount < 5 ORDER BY p.rowid LIMIT ? OFFSET ?"
+    if city == "上海":
+        conditions.append("p.address LIKE '上海市%'")
+    elif city == "苏州":
+        conditions.append("(p.address LIKE '苏州市%' OR p.address LIKE '苏州高新区%')")
+    elif city in ("嘉兴", "南通", "无锡", "镇江"):
+        conditions.append("p.address LIKE ?")
+        params.append(f"{city}市%")
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    if photoless_only:
+        photo_filter = "photoCount = 0"
+    elif category == "自然":
+        photo_filter = "photoCount < 10"
+    else:
+        photo_filter = "photoCount < 5"
+    query += f" GROUP BY p.id HAVING {photo_filter} ORDER BY p.rowid LIMIT ? OFFSET ?"
     params.extend((limit if limit > 0 else -1, offset))
     with sqlite3.connect(database) as connection:
         connection.row_factory = sqlite3.Row
-        return [dict(row) for row in connection.execute(query, params)]
+        rows = [dict(row) for row in connection.execute(query, params)]
+    requested_ids = {item for item in os.environ.get("PLACE_IDS", "").split(",") if item}
+    return [row for row in rows if not requested_ids or row["id"] in requested_ids]
 
 
 def search_name(name):
@@ -50,9 +72,17 @@ def search_name(name):
     return re.sub(r"\s+", " ", value).strip()
 
 
-def channel_url(channel, place):
+def channel_url(channel, place, query_mode="scenic"):
     name = search_name(place["name"])
-    query = f'"{name}" 上海 实景 照片'
+    address = str(place.get("address", ""))
+    city = next((name for name in ("上海", "苏州", "嘉兴", "南通", "无锡", "镇江") if address.startswith(name)), "上海")
+    if query_mode == "address":
+        query = f'"{name}" "{address}" 实景 照片'
+    elif query_mode == "community":
+        query = f'"{name}" {city} 小红书 大众点评 游客 实拍'
+    else:
+        scene_terms = "公园 绿地 滨水 风景 入口 照片" if place["category"] == "自然" else "实景 内景 照片"
+        query = f'"{name}" {city} {scene_terms}'
     encoded = quote_plus(query)
     if channel == "baidu-images":
         return f"https://image.baidu.com/search/index?tn=baiduimage&word={encoded}", query
@@ -96,10 +126,10 @@ async def crawl(args):
     if any(channel not in CHANNELS for channel in channels):
         raise ValueError(f"channels must come from {CHANNELS}")
     jobs = []
-    places = load_places(args.database, args.category, args.offset, args.limit)
+    places = load_places(args.database, args.category, args.city, args.offset, args.limit, args.photoless_only)
     for place in places:
         for channel in channels:
-            url, query = channel_url(channel, place)
+            url, query = channel_url(channel, place, args.query_mode)
             digest = hashlib.sha256(f"v1\n{channel}\n{query}\n{url}".encode()).hexdigest()[:12]
             bundle_dir = research_dir / "pages" / channel / place["id"] / digest
             if (bundle_dir / "result.json").exists() and not args.refresh:
@@ -115,7 +145,7 @@ async def crawl(args):
     )
     browser_config = BrowserConfig(
         headless=True, verbose=False, enable_stealth=True,
-        viewport_width=1440, viewport_height=1000, max_pages_before_recycle=50,
+        viewport_width=1440, viewport_height=1000,
     )
     records = []
     async with AsyncWebCrawler(config=browser_config) as crawler:
@@ -146,7 +176,8 @@ async def crawl(args):
                                   "images": len(record["media"].get("images", []))}, ensure_ascii=False), flush=True)
 
     research_dir.mkdir(parents=True, exist_ok=True)
-    manifest = {"placeCount": len(places), "scheduledCount": len(jobs), "savedCount": len(records),
+    manifest = {"placeCount": len(places), "queryMode": args.query_mode,
+                "scheduledCount": len(jobs), "savedCount": len(records),
                 "channels": channels, "successCount": sum(item["success"] for item in records)}
     (research_dir / "crawl-manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

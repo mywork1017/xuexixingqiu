@@ -2,7 +2,7 @@
   "name": "shanghai-study-map",
   "version": "0.1.0",
   "private": true,
-  "description": "通仔的学习星球微信小程序",
+  "description": "通仔的星球微信小程序",
   "scripts": {
     "audit:places": "npm --prefix admin run audit:places",
     "test": "node --test"

@@ -24,7 +24,10 @@ const findings = places.flatMap((place) => (
 const seen = new Map();
 
 for (const place of places) {
-  const key = `${place.category}|${normalizeName(place.name)}|${normalizeAddress(place.address)}`;
+  const comparableName = place.category === '自然'
+    ? String(place.name || '').trim().toLowerCase()
+    : normalizeName(place.name);
+  const key = `${place.category}|${comparableName}|${normalizeAddress(place.address)}`;
   if (seen.has(key)) {
     findings.push({
       issue: 'duplicate_place',
