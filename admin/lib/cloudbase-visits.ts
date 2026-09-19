@@ -1,9 +1,11 @@
 import cloudbase from '@cloudbase/node-sdk';
 import { getCloudBaseConfig } from '@/lib/cloudbase-sync';
+import { prisma } from '@/lib/prisma';
 
 export type VisitRow = {
   id: string;
   visitorCode: string;
+  visitorName: string;
   nation: string;
   province: string;
   city: string;
@@ -13,7 +15,6 @@ export type VisitRow = {
   address: string;
   locationLevel: 'place' | 'street' | 'district' | 'city' | 'unknown';
   accuracy: number | null;
-  source: 'page_open' | 'location_button';
   createdAt: string;
 };
 
@@ -45,15 +46,20 @@ export async function getRecentVisits(): Promise<VisitQueryResult> {
       secretId: config.secretId,
       secretKey: config.secretKey
     });
-    const result = await app.database()
-      .collection(process.env.CLOUDBASE_VISIT_COLLECTION || 'visitLogs')
-      .orderBy('createdAt', 'desc')
-      .limit(500)
-      .get();
+    const [result, visitorAliases] = await Promise.all([
+      app.database()
+        .collection(process.env.CLOUDBASE_VISIT_COLLECTION || 'visitLogs')
+        .orderBy('createdAt', 'desc')
+        .limit(500)
+        .get(),
+      prisma.visitorAlias.findMany({ select: { visitorCode: true, name: true } })
+    ]);
+    const visitorNames = new Map(visitorAliases.map((item) => [item.visitorCode, item.name]));
 
     const rows = result.data.map((item) => ({
       id: String(item._id || ''),
       visitorCode: String(item.visitorCode || ''),
+      visitorName: visitorNames.get(String(item.visitorCode || '')) || '',
       nation: String(item.nation || ''),
       province: String(item.province || ''),
       city: String(item.city || ''),
@@ -65,7 +71,6 @@ export async function getRecentVisits(): Promise<VisitQueryResult> {
         ? item.locationLevel
         : 'unknown',
       accuracy: Number.isFinite(Number(item.accuracy)) ? Number(item.accuracy) : null,
-      source: item.source === 'location_button' ? 'location_button' as const : 'page_open' as const,
       createdAt: toIsoString(item.createdAt)
     }));
     return { ok: true, rows };

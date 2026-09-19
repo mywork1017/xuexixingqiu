@@ -8,18 +8,18 @@ datasource db {
 }
 
 model Place {
-  id           String       @id @default(cuid())
-  name         String
-  category     String
-  address      String
-  latitude     Float
-  longitude    Float
-  hours        String       @default("")
-  description  String       @default("")
-  pushedFingerprint String  @default("")
-  photos       PlacePhoto[]
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id                String       @id @default(cuid())
+  name              String
+  category          String
+  address           String
+  latitude          Float
+  longitude         Float
+  hours             String       @default("")
+  description       String       @default("")
+  pushedFingerprint String       @default("")
+  photos            PlacePhoto[]
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 }
 
 model PlacePhoto {
@@ -29,4 +29,11 @@ model PlacePhoto {
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+}
+
+model VisitorAlias {
+  visitorCode String   @id
+  name        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

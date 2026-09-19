@@ -111,8 +111,11 @@ test('访问记录云函数和后台页面只保存展示所需定位字段', ()
   assert.match(adminPage, /区县/);
   assert.match(adminPage, /小区\/地标/);
   assert.match(adminPage, /街道/);
-  assert.match(adminPage, /搜索访客、城市、区县、小区或街道/);
+  assert.match(adminPage, /搜索访客名字、编号、城市、区县、小区或街道/);
   assert.match(adminPage, /全部地点/);
   assert.match(adminPage, /全部访客/);
   assert.match(adminPage, /DatePicker\.RangePicker/);
+  assert.match(adminPage, /saveVisitorName/);
+  assert.match(adminPage, /deleteVisit/);
+  assert.doesNotMatch(adminPage, /触发方式|定位按钮|打开地图/);
 });
