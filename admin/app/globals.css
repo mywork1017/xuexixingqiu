@@ -125,6 +125,11 @@ a {
   width: 100%;
 }
 
+.visit-filter-checkbox {
+  align-items: center;
+  display: flex;
+}
+
 .form-grid {
   display: grid;
   gap: 0 1rem;
@@ -217,7 +222,7 @@ a {
 
 @media (min-width: 64rem) {
   .visit-filter-grid {
-    grid-template-columns: minmax(13rem, 2fr) minmax(10rem, 1fr) minmax(10rem, 1fr) minmax(17rem, 1.5fr) auto;
+    grid-template-columns: minmax(13rem, 2fr) minmax(10rem, 1fr) minmax(10rem, 1fr) minmax(17rem, 1.5fr) auto auto;
   }
 
   .photo-grid {

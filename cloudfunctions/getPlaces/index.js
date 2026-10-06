@@ -8,8 +8,6 @@ const db = cloud.database();
 const command = db.command;
 const DEFAULT_PAGE_SIZE = 200;
 const MAX_PAGE_SIZE = 500;
-const BOUNDS_SCAN_PAGE_SIZE = 1000;
-const MAX_BOUNDS_SCAN_PAGE_COUNT = 20;
 
 function normalizeLimit(value) {
   const limit = Math.floor(Number(value || DEFAULT_PAGE_SIZE));
@@ -45,27 +43,17 @@ exports.main = async (event = {}) => {
   if (mode === 'bounds') {
     const bounds = normalizeBounds(event.bounds);
     if (!bounds) return { data: [], hasMore: false };
-    const data = [];
-    let offset = 0;
-    for (let page = 0; page < MAX_BOUNDS_SCAN_PAGE_COUNT && data.length < limit; page += 1) {
-      const result = await db.collection('places')
-        .where({
-          ...where,
-          latitude: command.gte(bounds.southwest.latitude).and(command.lte(bounds.northeast.latitude))
-        })
-        .orderBy('latitude', 'asc')
-        .skip(offset)
-        .limit(BOUNDS_SCAN_PAGE_SIZE)
-        .get();
-      const latitudeMatches = result.data || [];
-      data.push(...latitudeMatches.filter((place) => (
-        Number(place.longitude) >= bounds.southwest.longitude
-          && Number(place.longitude) <= bounds.northeast.longitude
-      )));
-      if (latitudeMatches.length < BOUNDS_SCAN_PAGE_SIZE) break;
-      offset += latitudeMatches.length;
-    }
-    return { data: data.slice(0, limit), hasMore: false };
+    const result = await db.collection('places')
+      .where({
+        ...where,
+        latitude: command.gte(bounds.southwest.latitude).and(command.lte(bounds.northeast.latitude)),
+        longitude: command.gte(bounds.southwest.longitude).and(command.lte(bounds.northeast.longitude))
+      })
+      .orderBy('_id', 'asc')
+      .limit(limit + 1)
+      .get();
+    const data = result.data || [];
+    return { data: data.slice(0, limit), hasMore: data.length > limit };
   }
 
   const offset = normalizeOffset(event.offset);

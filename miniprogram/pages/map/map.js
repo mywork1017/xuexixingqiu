@@ -49,12 +49,22 @@ const CARD_SWIPE_DURATION_MS = 200;
 const BOTTOM_SHEET_OCCLUDED_RPX = 298;
 const MARKER_EDGE_GUARD_PX = 28;
 const PLACES_CACHE_KEY = 'places:nature-v4';
-const PLACE_PAGE_SIZE = 200;
+const PLACE_PAGE_SIZE = 500;
 const MAX_PLACE_PAGE_COUNT = 50;
 const MAX_VISIBLE_PLACE_COUNT = 500;
+const REFRESH_RIPPLE_DURATION_MS = 1500;
+
+function mergeVisiblePlaceSnapshot(places, snapshot) {
+  const retained = snapshot.complete
+    ? places.filter((place) => !isPlaceInBounds(place, snapshot.bounds))
+    : places;
+  return retained.concat(snapshot.places);
+}
+
 function createCategoryTabs(activeFilter) {
   return CATEGORY_FILTER_OPTIONS.map((category) => ({
     name: category,
+    label: { 图书馆: '学习', 食堂: '吃饭' }[category] || category,
     markerStyle: category === '全部' ? '' : CATEGORY_META[category].markerStyle,
     active: activeFilter === category
   }));
@@ -174,6 +184,11 @@ Page({
     initialSelectionLocation: SHANGHAI_CENTER_LOCATION,
     iconsReady: false,
     loading: true,
+    syncingPlaces: false,
+    refreshing: false,
+    refreshRippleVisible: false,
+    refreshRippleX: 0,
+    refreshRippleY: 0,
     loadError: '',
     noResultsInView: false,
     emptyStateText: '附近没有结果',
@@ -184,23 +199,26 @@ Page({
 
   onLoad() {
     const hasCachedPlaces = this.refreshFromCache();
-    if (wx.cloud && typeof wx.nextTick === 'function') {
-      wx.nextTick(() => this.startPlaceLoadAnimation());
+    const locationReady = this.resolveInitialSelectionLocation();
+    if (typeof wx.nextTick === 'function') {
+      wx.nextTick(() => {
+        if (!this.mapPageHidden && (this.data.locating || this.data.loading)) {
+          this.startUserLocationSearchSpin();
+        }
+      });
     }
-    Promise.all([
-      Promise.all([
-        this.prepareMapDotIcons().catch(() => null),
-        this.prepareUserLocationIcons().catch(() => null)
-      ]),
-      this.resolveInitialSelectionLocation()
+    const iconsReady = Promise.all([
+      this.prepareMapDotIcons().catch(() => null),
+      this.prepareUserLocationIcons().catch(() => null)
     ]).then(() => {
-      this.syncMarkers([]);
-      if (hasCachedPlaces) this.updateVisibleMarkers();
-      this.loadPlaces({ hasCachedPlaces });
+      this.updateVisibleMarkers();
     });
+    const placesReady = this.loadPlaces({ hasCachedPlaces });
+    return Promise.all([iconsReady, locationReady, placesReady]);
   },
 
   onShow() {
+    this.mapPageHidden = false;
     this.startSelectedMarkerBreathing();
     if (!this.data.places.length && this.data.iconsReady) {
       this.refreshFromCache();
@@ -208,6 +226,8 @@ Page({
   },
 
   onHide() {
+    this.mapPageHidden = true;
+    this.stopRefreshRipple();
     this.stopSelectedMarkerBreathing();
     this.placeLoadAnimationActive = false;
     this.stopUserLocationSearchSpin(true);
@@ -216,6 +236,8 @@ Page({
   },
 
   onUnload() {
+    this.mapPageHidden = true;
+    this.stopRefreshRipple();
     this.stopSelectedMarkerBreathing();
     this.placeLoadAnimationActive = false;
     this.stopUserLocationSearchSpin();
@@ -319,26 +341,37 @@ Page({
   },
 
   resolveInitialSelectionLocation() {
+    this.setData({ locating: true });
     return this.getAuthorizedUserLocation().then((location) => {
       const userLocation = {
         latitude: location.latitude,
         longitude: location.longitude
       };
       this.keepInitialUserLocationCenter = true;
-      this.recordLocationVisit(location, 'page_open');
+      this.recordLocationVisit(location, 'page_open').catch(() => null);
       return new Promise((resolve) => {
         this.setData({
           userLocation,
           initialSelectionLocation: userLocation,
           latitude: userLocation.latitude,
-          longitude: userLocation.longitude
-        }, resolve);
+          longitude: userLocation.longitude,
+          selectedPlace: null,
+          locating: false
+        }, () => {
+          this.updateVisibleMarkers();
+          if (!this.data.loading) this.requestUserLocationSearchFinish();
+          resolve();
+        });
       });
     }).catch(() => new Promise((resolve) => {
       this.setData({
         userLocation: null,
-        initialSelectionLocation: SHANGHAI_CENTER_LOCATION
-      }, resolve);
+        initialSelectionLocation: SHANGHAI_CENTER_LOCATION,
+        locating: false
+      }, () => {
+        if (!this.data.loading) this.requestUserLocationSearchFinish();
+        resolve();
+      });
     }));
   },
 
@@ -404,7 +437,7 @@ Page({
       .then((result) => {
         const places = Array.isArray(result.data) ? result.data : [];
         if (places.length) {
-          this.applyPlaces(places, '', { preserveCenter: true });
+          this.applyPlaces(places, '', { preserveCenter: true, writeCache: false });
         }
         return places;
       });
@@ -424,32 +457,21 @@ Page({
 
   loadPlaces(options = {}) {
     const hasCachedPlaces = Boolean(options.hasCachedPlaces || this.data.places.length);
-    this.setData({ loading: true, loadError: '' });
+    this.setData({ loading: !hasCachedPlaces, syncingPlaces: Boolean(wx.cloud), loadError: '' });
 
     if (wx.cloud) {
-      this.startPlaceLoadAnimation();
-      const visibleFirst = hasCachedPlaces ? Promise.resolve([]) : this.loadVisiblePlaces().catch(() => []);
-      visibleFirst
-        .then(() => this.loadAllPlacePages())
-        .then((cloudPlaces) => {
-          if (cloudPlaces.length) {
-            this.applyPlaces(cloudPlaces, '', { preserveCenter: true });
-          } else if (!hasCachedPlaces) {
-            this.applyPlaces([], '后台暂无已发布地点', { writeCache: false });
-          }
-        })
-        .catch(() => {
-          if (!hasCachedPlaces) {
-            this.applyPlaces([], '地点加载失败，请稍后重试', { writeCache: false });
-          }
-        })
-        .then(() => {
+      if (!hasCachedPlaces) this.startPlaceLoadAnimation();
+      const visibleFirst = hasCachedPlaces ? Promise.resolve([]) : this.loadVisiblePlaces().catch(() => null);
+      const allPlaces = visibleFirst.then((visiblePlaces) => {
+        if (visiblePlaces !== null) {
           this.setData({ loading: false }, () => {
             this.finishPlaceLoadAnimation();
             this.updateVisibleMarkers();
           });
-        });
-      return;
+        }
+        return this.loadAllPlacePages();
+      });
+      return this.syncAllPlaces(allPlaces, { showEmptyError: true });
     }
 
     if (!hasCachedPlaces) this.applyPlaces([], '当前环境无法连接地点后台', { writeCache: false });
@@ -457,6 +479,108 @@ Page({
       this.finishPlaceLoadAnimation();
       this.updateVisibleMarkers();
     });
+  },
+
+  syncAllPlaces(allPlaces, options = {}) {
+    if (this.pendingPlaceLoad) return this.pendingPlaceLoad;
+    this.setData({ syncingPlaces: true });
+    this.pendingPlaceLoad = (async () => {
+      try {
+        const cloudPlaces = await (allPlaces || this.loadAllPlacePages());
+        const snapshots = this.placeRefreshSnapshots || [];
+        const places = snapshots.reduce(mergeVisiblePlaceSnapshot, cloudPlaces);
+        const loadError = !places.length && options.showEmptyError && !snapshots.length
+          ? '后台暂无已发布地点' : '';
+        this.applyPlaces(places, loadError, {
+          preserveCenter: true,
+          preserveSelection: true
+        });
+      } catch (error) {
+        if (this.data.loading && !this.data.places.length) {
+          this.applyPlaces([], '地点加载失败，请稍后重试', { preserveCenter: true, writeCache: false });
+        }
+      } finally {
+        this.pendingPlaceLoad = null;
+        this.placeRefreshSnapshots = [];
+        this.setData({ loading: false, syncingPlaces: false }, () => {
+          this.finishPlaceLoadAnimation();
+          this.updateVisibleMarkers();
+        });
+      }
+    })();
+    return this.pendingPlaceLoad;
+  },
+
+  refreshPlaces() {
+    if (this.data.loading || this.data.refreshing) return;
+    if (!wx.cloud) {
+      this.setData({ loadError: '当前环境无法连接地点后台' });
+      return;
+    }
+
+    this.stopRefreshRipple();
+    this.setData({ refreshing: true, loadError: '' });
+    return this.getCurrentMapRegion()
+      .then((bounds) => this.callGetPlaces({ mode: 'bounds', bounds, limit: MAX_VISIBLE_PLACE_COUNT })
+        .then((result) => ({
+          bounds,
+          places: Array.isArray(result.data) ? result.data : [],
+          complete: result.hasMore === false
+        })))
+      .then((snapshot) => {
+        this.placeRefreshSnapshots = (this.placeRefreshSnapshots || []).concat(snapshot);
+        this.applyPlaces(mergeVisiblePlaceSnapshot(this.data.places, snapshot), '', {
+          preserveCenter: true,
+          preserveSelection: true,
+          writeCache: false
+        });
+        this.syncAllPlaces();
+        return true;
+      })
+      .catch(() => {
+        this.setData({ loadError: '刷新失败，请稍后重试' });
+        return false;
+      })
+      .then((succeeded) => {
+        this.setData({ refreshing: false }, () => {
+          if (succeeded && !this.mapPageHidden) this.playRefreshRipple();
+        });
+      });
+  },
+
+  playRefreshRipple() {
+    if (!this.data.userLocation) return;
+    const runId = this.refreshRippleRunId;
+    return this.getCurrentMapRegion().then((region) => {
+      if (runId !== this.refreshRippleRunId || this.mapPageHidden || this.data.refreshing) return;
+      const windowInfo = typeof wx.getWindowInfo === 'function'
+        ? wx.getWindowInfo()
+        : wx.getSystemInfoSync();
+      const point = projectLocationToMapPoint(
+        this.data.userLocation,
+        region,
+        Number(windowInfo.windowWidth || 375),
+        Number(windowInfo.windowHeight || 667)
+      );
+      this.setData({
+        refreshRippleVisible: true,
+        refreshRippleX: point.x,
+        refreshRippleY: point.y
+      });
+      this.refreshRippleTimer = setTimeout(() => {
+        this.refreshRippleTimer = null;
+        this.setData({ refreshRippleVisible: false });
+      }, REFRESH_RIPPLE_DURATION_MS);
+    }).catch(() => {});
+  },
+
+  stopRefreshRipple() {
+    this.refreshRippleRunId = (this.refreshRippleRunId || 0) + 1;
+    if (this.refreshRippleTimer) {
+      clearTimeout(this.refreshRippleTimer);
+      this.refreshRippleTimer = null;
+    }
+    if (this.data.refreshRippleVisible) this.setData({ refreshRippleVisible: false });
   },
 
   applyPlaces(rawPlaces, loadError, options = {}) {
@@ -468,19 +592,24 @@ Page({
     const retainedSelection = this.data.selectedPlace
       ? places.find((place) => place.id === this.data.selectedPlace.id)
       : null;
-    const selectedPlace = retainedSelection || getNearestPlace(places, this.data.initialSelectionLocation);
-    const keepUserLocationCenter = Boolean(this.keepInitialUserLocationCenter && this.data.userLocation);
+    const selectedPlace = options.preserveSelection
+      ? retainedSelection
+      : (retainedSelection || getNearestPlace(places, this.data.initialSelectionLocation));
+    const keepUserLocationCenter = Boolean(
+      !options.preserveSelection && this.keepInitialUserLocationCenter && this.data.userLocation
+    );
     this.keepInitialUserLocationCenter = false;
 
-    if (options.writeCache !== false && places.length) wx.setStorageSync(PLACES_CACHE_KEY, places);
+    if (options.writeCache !== false) wx.setStorageSync(PLACES_CACHE_KEY, places);
+    const centerUpdate = options.preserveCenter ? {} : (keepUserLocationCenter
+      ? { latitude: this.data.userLocation.latitude, longitude: this.data.userLocation.longitude }
+      : {
+        latitude: selectedPlace ? selectedPlace.latitude : this.data.latitude,
+        longitude: selectedPlace ? selectedPlace.longitude : this.data.longitude
+      });
     this.setData({
       places,
-      latitude: keepUserLocationCenter
-        ? this.data.userLocation.latitude
-        : (options.preserveCenter ? this.data.latitude : (selectedPlace ? selectedPlace.latitude : this.data.latitude)),
-      longitude: keepUserLocationCenter
-        ? this.data.userLocation.longitude
-        : (options.preserveCenter ? this.data.longitude : (selectedPlace ? selectedPlace.longitude : this.data.longitude)),
+      ...centerUpdate,
       selectedPlace: keepUserLocationCenter ? null : this.withDisplayState(selectedPlace),
       loadError: loadError || ''
     }, () => {
@@ -560,7 +689,7 @@ Page({
     this.setData(updates, callback);
   },
 
-  ensureUserLocationAnimationCanvas(callback) {
+  ensureUserLocationAnimationCanvas(callback, retry = true) {
     if (this.userLocationAnimationCanvas && this.userLocationAnimationContext) {
       callback(this.userLocationAnimationCanvas, this.userLocationAnimationContext);
       return;
@@ -573,6 +702,10 @@ Page({
       .exec((result) => {
         const canvas = result && result[0] && result[0].node;
         if (!canvas) {
+          if (retry && !this.mapPageHidden && typeof wx.nextTick === 'function') {
+            wx.nextTick(() => this.ensureUserLocationAnimationCanvas(callback, false));
+            return;
+          }
           callback(null, null);
           return;
         }
@@ -580,14 +713,32 @@ Page({
           ? wx.getWindowInfo()
           : wx.getSystemInfoSync();
         const pixelRatio = Number(windowInfo.pixelRatio || 1);
-        canvas.width = USER_LOCATION_ICON_CANVAS_WIDTH * pixelRatio;
-        canvas.height = USER_LOCATION_ICON_CANVAS_HEIGHT * pixelRatio;
+        const width = Number(windowInfo.windowWidth || 375);
+        const height = Number(windowInfo.windowHeight || 667);
+        canvas.width = width * pixelRatio;
+        canvas.height = height * pixelRatio;
         const context = canvas.getContext('2d');
         context.scale(pixelRatio, pixelRatio);
         this.userLocationAnimationCanvas = canvas;
         this.userLocationAnimationContext = context;
+        this.userLocationAnimationCanvasWidth = width;
+        this.userLocationAnimationCanvasHeight = height;
         callback(canvas, context);
       });
+  },
+
+  drawUserLocationAnimationFrame(frame, x = this.data.userLocationAnimationX, y = this.data.userLocationAnimationY) {
+    const context = this.userLocationAnimationContext;
+    if (!context) return;
+    context.clearRect(0, 0, this.userLocationAnimationCanvasWidth, this.userLocationAnimationCanvasHeight);
+    context.save();
+    context.translate(x, y);
+    context.scale(
+      USER_LOCATION_MARKER_WIDTH / USER_LOCATION_ICON_CANVAS_WIDTH,
+      USER_LOCATION_MARKER_HEIGHT / USER_LOCATION_ICON_CANVAS_HEIGHT
+    );
+    drawUserLocationFrameToContext(context, frame);
+    context.restore();
   },
 
   getUserLocationAnimationPosition(callback) {
@@ -627,7 +778,8 @@ Page({
 
   requestUserLocationSearchFinish() {
     this.userLocationSearchStopRequested = true;
-    const elapsed = Math.max(0, Date.now() - Number(this.userLocationSearchStartedAt || Date.now()));
+    const elapsed = this.userLocationSearchStartedAt === null
+      ? 0 : Math.max(0, Date.now() - Number(this.userLocationSearchStartedAt || Date.now()));
     this.userLocationSearchFinishAt = Math.ceil((elapsed + 1) / USER_LOCATION_SEARCH_SPIN_DURATION_MS)
       * USER_LOCATION_SEARCH_SPIN_DURATION_MS;
   },
@@ -651,6 +803,7 @@ Page({
     this.userLocationSearchStopRequested = false;
     this.userLocationSearchSpinComplete = false;
     this.userLocationSearchFinishAt = null;
+    this.userLocationSearchStartedAt = null;
     if (this.userLocationAnimationType === 'search' || settle) {
       this.stopUserLocationCanvasAnimation(settle);
     }
@@ -659,13 +812,13 @@ Page({
   startPlaceLoadAnimation() {
     if (this.placeLoadAnimationActive) return;
     this.placeLoadAnimationActive = true;
-    this.startUserLocationSearchSpin();
+    if (!this.data.locating && !this.userLocationAnimationType) this.startUserLocationSearchSpin();
   },
 
   finishPlaceLoadAnimation() {
     if (!this.placeLoadAnimationActive) return;
     this.placeLoadAnimationActive = false;
-    this.requestUserLocationSearchFinish();
+    if (!this.data.locating && !this.pendingUserLocationDrop) this.requestUserLocationSearchFinish();
   },
 
   startUserLocationSearchSpin() {
@@ -678,6 +831,7 @@ Page({
     this.userLocationSearchStopRequested = false;
     this.userLocationSearchSpinComplete = false;
     this.userLocationSearchFinishAt = null;
+    this.userLocationSearchStartedAt = null;
 
     const windowInfo = typeof wx.getWindowInfo === 'function'
       ? wx.getWindowInfo()
@@ -692,11 +846,13 @@ Page({
       if (runId !== this.userLocationAnimationRunId) return;
       if (!canvas || !context) {
         this.stopUserLocationCanvasAnimation(true);
+        this.userLocationSearchSpinComplete = true;
+        this.tryStartUserLocationDrop();
         return;
       }
       const canvasX = point.x - (USER_LOCATION_MARKER_WIDTH / 2);
       const canvasY = point.y - (USER_LOCATION_MARKER_HEIGHT * USER_LOCATION_ICON_ANCHOR_Y);
-      drawUserLocationFrameToContext(context, { ...baseFrame, alpha: 0, spinYRotation: 0 });
+      this.drawUserLocationAnimationFrame({ ...baseFrame, alpha: 0, spinYRotation: 0 }, canvasX, canvasY);
       this.setUserLocationMarkerAlpha(0, {
         userLocationAnimationVisible: true,
         userLocationAnimationX: canvasX,
@@ -704,6 +860,7 @@ Page({
       }, () => {
         if (runId !== this.userLocationAnimationRunId) return;
         this.userLocationSearchStartedAt = Date.now();
+        if (this.userLocationSearchStopRequested) this.requestUserLocationSearchFinish();
         const render = () => {
           if (runId !== this.userLocationAnimationRunId) return;
           const elapsed = Date.now() - this.userLocationSearchStartedAt;
@@ -715,7 +872,7 @@ Page({
           const spatialSpinBlend = this.userLocationSearchStopRequested
             ? Math.max(0, Math.min(1, (this.userLocationSearchFinishAt - elapsed) / 60))
             : 1;
-          drawUserLocationFrameToContext(context, {
+          this.drawUserLocationAnimationFrame({
             ...baseFrame,
             alpha,
             spinYRotation: shouldFinish ? 0 : cycleProgress * 360,
@@ -743,12 +900,13 @@ Page({
     this.cancelUserLocationAnimationFrame();
     this.userLocationAnimationType = null;
     this.setUserLocationMarkerAlpha(1, { userLocationAnimationVisible: false }, () => {
+      if (runId !== this.userLocationAnimationRunId) return;
       if (this.userLocationAnimationContext) {
         this.userLocationAnimationContext.clearRect(
           0,
           0,
-          USER_LOCATION_ICON_CANVAS_WIDTH,
-          USER_LOCATION_ICON_CANVAS_HEIGHT
+          this.userLocationAnimationCanvasWidth,
+          this.userLocationAnimationCanvasHeight
         );
       }
     });
@@ -761,6 +919,11 @@ Page({
     this.userLocationAnimationType = null;
     if (wasActive || settle) {
       this.setUserLocationMarkerAlpha(1, { userLocationAnimationVisible: false });
+      if (this.userLocationAnimationContext) {
+        this.userLocationAnimationContext.clearRect(
+          0, 0, this.userLocationAnimationCanvasWidth, this.userLocationAnimationCanvasHeight
+        );
+      }
     }
   },
 
@@ -787,7 +950,7 @@ Page({
         }
         const canvasX = point.x - (USER_LOCATION_MARKER_WIDTH / 2);
         const canvasY = point.y - (USER_LOCATION_MARKER_HEIGHT * USER_LOCATION_ICON_ANCHOR_Y);
-        drawUserLocationFrameToContext(context, interpolateUserLocationFrame(frames, 0));
+        this.drawUserLocationAnimationFrame(interpolateUserLocationFrame(frames, 0), canvasX, canvasY);
         this.setUserLocationMarkerAlpha(0, {
           userLocationAnimationVisible: true,
           userLocationAnimationX: canvasX,
@@ -799,7 +962,7 @@ Page({
             if (runId !== this.userLocationAnimationRunId) return;
             const elapsed = Date.now() - startedAt;
             const frame = interpolateUserLocationFrame(frames, elapsed);
-            drawUserLocationFrameToContext(context, frame);
+            this.drawUserLocationAnimationFrame(frame);
             if (elapsed >= totalDuration) {
               this.finishUserLocationAnimation(runId);
               return;
@@ -1021,7 +1184,7 @@ Page({
         markerPlaceIds: visiblePlaces.map((place) => place.id),
         selectedPlace,
         selectedPlaceIndex,
-        noResultsInView: !this.data.loading && this.data.places.length > 0 && visiblePlaces.length === 0,
+        noResultsInView: !this.data.loading && !this.data.syncingPlaces && !this.data.loadError && visiblePlaces.length === 0,
         emptyStateText: '附近没有结果'
       }, () => {
         this.syncMarkers(displayPlaces);
@@ -1059,28 +1222,26 @@ Page({
   },
 
   moveToUserLocation() {
-    if (this.data.locating || this.pendingUserLocationDrop || this.userLocationAnimationType === 'search') return;
-    this.setData({ locating: true }, () => {
-      this.startUserLocationSearchSpin();
-    });
-    this.getAuthorizedUserLocation().then((location) => {
-      this.recordLocationVisit(location, 'location_button').then(() => {
-        const userLocation = {
-          latitude: location.latitude,
-          longitude: location.longitude
-        };
-        this.setData({
-          userLocation,
-          initialSelectionLocation: userLocation,
-          latitude: userLocation.latitude,
-          longitude: userLocation.longitude,
-          selectedPlace: null,
-          noResultsInView: false,
-          locating: false
-        }, () => {
-          this.updateVisibleMarkers();
-          this.queueUserLocationDrop();
-        });
+    if (this.data.locating || this.pendingUserLocationDrop) return;
+    this.setData({ locating: true });
+    this.startUserLocationSearchSpin();
+    return this.getAuthorizedUserLocation().then((location) => {
+      this.recordLocationVisit(location, 'location_button').catch(() => null);
+      const userLocation = {
+        latitude: location.latitude,
+        longitude: location.longitude
+      };
+      this.setData({
+        userLocation,
+        initialSelectionLocation: userLocation,
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        selectedPlace: null,
+        noResultsInView: false,
+        locating: false
+      }, () => {
+        this.updateVisibleMarkers();
+        this.queueUserLocationDrop();
       });
     }).catch(() => {
       this.setData({ locating: false }, () => {

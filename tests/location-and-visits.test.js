@@ -87,7 +87,11 @@ test('定位按钮只移动到实时位置且附近无数据时仅显示提示',
   assert.doesNotMatch(moveToLocation[1], /\bscale\s*:/);
   assert.match(mapJs, /emptyStateText: '附近没有结果'/);
   assert.doesNotMatch(mapWxml, /goToShanghaiCenter|去看看/);
-  assert.match(mapWxml, /wx:if="\{\{!noResultsInView\}\}" class="map-actions/);
+  const mapActions = mapWxml.match(/<view class="map-actions[^\"]*">([\s\S]*?)\n  <\/view>/);
+  assert.ok(mapActions);
+  assert.doesNotMatch(mapActions[0], /\b(?:wx:if|wx:elif|wx:else|hidden)=/);
+  assert.match(mapActions[1], /bindtap="refreshPlaces"/);
+  assert.match(mapActions[1], /bindtap="moveToUserLocation"/);
   assert.match(mapJs, /resolveInitialSelectionLocation\(\)[\s\S]*userLocation,[\s\S]*latitude: userLocation\.latitude,[\s\S]*longitude: userLocation\.longitude/);
   assert.match(mapJs, /requestAuthorizedLocation\('scope\.userLocation', 'getLocation'\)/);
   assert.match(mapJs, /wx\.getSetting/);
@@ -117,5 +121,8 @@ test('访问记录云函数和后台页面只保存展示所需定位字段', ()
   assert.match(adminPage, /DatePicker\.RangePicker/);
   assert.match(adminPage, /saveVisitorName/);
   assert.match(adminPage, /deleteVisit/);
+  assert.match(adminPage, /隐藏我自己/);
+  assert.match(adminPage, /row\.visitorName\.trim\(\) === '我自己'/);
+  assert.doesNotMatch(adminPage, /这是我自己/);
   assert.doesNotMatch(adminPage, /触发方式|定位按钮|打开地图/);
 });

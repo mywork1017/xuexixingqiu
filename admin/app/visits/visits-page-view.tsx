@@ -1,7 +1,7 @@
 'use client';
 
 import { DeleteOutlined, EditOutlined, SearchOutlined } from '@ant-design/icons';
-import { Alert, App, Button, Card, DatePicker, Input, Modal, Select, Space, Table, Typography } from 'antd';
+import { Alert, App, Button, Card, Checkbox, DatePicker, Input, Modal, Select, Space, Table, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { useMemo, useState } from 'react';
 import type { VisitQueryResult, VisitRow } from '@/lib/cloudbase-visits';
@@ -27,6 +27,10 @@ function locationLabel(row: VisitRow) {
     .join(' / ') || '待解析';
 }
 
+function visitorLabel(row: VisitRow) {
+  return row.visitorName || `访客 ${row.visitorCode}`;
+}
+
 export function VisitsPageView({
   rows,
   error
@@ -39,6 +43,7 @@ export function VisitsPageView({
   const [query, setQuery] = useState('');
   const [location, setLocation] = useState<string>();
   const [visitor, setVisitor] = useState<string>();
+  const [hideSelf, setHideSelf] = useState(false);
   const [timeRange, setTimeRange] = useState<[number, number] | null>(null);
   const [datePickerKey, setDatePickerKey] = useState(0);
   const [visitorEditor, setVisitorEditor] = useState<{ code: string; name: string } | null>(null);
@@ -51,7 +56,7 @@ export function VisitsPageView({
   const visitorOptions = useMemo(() => Array.from(new Map(
     visitRows
       .filter((row) => row.visitorCode)
-      .map((row) => [row.visitorCode, row.visitorName || `访客 ${row.visitorCode}`])
+      .map((row) => [row.visitorCode, visitorLabel(row)])
   ).entries()).sort((left, right) => left[1].localeCompare(right[1], 'zh-CN'))
     .map(([value, label]) => ({ value, label })), [visitRows]);
 
@@ -60,6 +65,7 @@ export function VisitsPageView({
     return visitRows.filter((row) => {
       if (location && locationValue(row) !== location) return false;
       if (visitor && row.visitorCode !== visitor) return false;
+      if (hideSelf && row.visitorName.trim() === '我自己') return false;
       const visitedAt = new Date(row.createdAt).getTime();
       if (timeRange && (!Number.isFinite(visitedAt) || visitedAt < timeRange[0] || visitedAt > timeRange[1])) {
         return false;
@@ -78,7 +84,7 @@ export function VisitsPageView({
       ]
         .some((value) => value.toLocaleLowerCase('zh-CN').includes(keyword));
     });
-  }, [location, query, timeRange, visitRows, visitor]);
+  }, [hideSelf, location, query, timeRange, visitRows, visitor]);
 
   const columns: TableColumnsType<VisitRow> = [
     {
@@ -95,12 +101,17 @@ export function VisitsPageView({
         <Space orientation="vertical" size={0}>
           <Button
             icon={<EditOutlined />}
-            onClick={() => setVisitorEditor({ code: row.visitorCode, name: row.visitorName })}
+            onClick={() => setVisitorEditor({
+              code: row.visitorCode,
+              name: row.visitorName
+            })}
             type="link"
           >
-            {row.visitorName || `访客 ${row.visitorCode}`}
+            {visitorLabel(row)}
           </Button>
-          {row.visitorName ? <Typography.Text type="secondary">访客 {row.visitorCode}</Typography.Text> : null}
+          {row.visitorName
+            ? <Typography.Text type="secondary">访客 {row.visitorCode}</Typography.Text>
+            : null}
         </Space>
       ) : '匿名访客'
     },
@@ -180,12 +191,13 @@ export function VisitsPageView({
     }
   ];
 
-  const hasFilters = Boolean(query.trim() || location || visitor || timeRange);
+  const hasFilters = Boolean(query.trim() || location || visitor || hideSelf || timeRange);
 
   function resetFilters() {
     setQuery('');
     setLocation(undefined);
     setVisitor(undefined);
+    setHideSelf(false);
     setTimeRange(null);
     setDatePickerKey((value) => value + 1);
   }
@@ -242,6 +254,11 @@ export function VisitsPageView({
             }}
             placeholder={['开始日期', '结束日期']}
           />
+          <div className="visit-filter-checkbox">
+            <Checkbox checked={hideSelf} onChange={(event) => setHideSelf(event.target.checked)}>
+              隐藏我自己
+            </Checkbox>
+          </div>
           <Button disabled={!hasFilters} onClick={resetFilters}>重置</Button>
         </div>
       </Card>

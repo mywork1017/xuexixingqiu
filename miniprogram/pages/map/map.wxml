@@ -15,11 +15,14 @@
     bindregionchange="onRegionChange"
   />
 
+  <view wx:if="{{refreshRippleVisible}}" class="refresh-ripple-origin" style="left: {{refreshRippleX}}px; top: {{refreshRippleY}}px;" aria-hidden="true">
+    <view class="refresh-ripple"></view>
+  </view>
+
   <canvas
     id="userLocationAnimationCanvas"
     type="2d"
-    class="user-location-animation-canvas {{userLocationAnimationVisible ? 'visible' : ''}}"
-    style="transform: translate3d({{userLocationAnimationX}}px, {{userLocationAnimationY}}px, 0);"
+    class="user-location-animation-canvas"
     aria-hidden="true"
   ></canvas>
 
@@ -42,7 +45,7 @@
             bindtap="toggleCategory"
           >
             <text wx:if="{{item.name !== '全部'}}" class="category-dot {{item.markerStyle}}"></text>
-            <text>{{item.name}}</text>
+            <text>{{item.label}}</text>
             <view wx:if="{{item.active}}" class="category-indicator"></view>
           </button>
         </block>
@@ -55,7 +58,10 @@
     <text class="empty-tip-text">{{emptyStateText}}</text>
   </view>
 
-  <view wx:if="{{!noResultsInView}}" class="map-actions {{selectedPlace ? 'with-sheet' : ''}}">
+  <view class="map-actions {{selectedPlace ? 'with-sheet' : ''}}">
+    <view class="location-button refresh-button" aria-label="{{refreshing ? '正在刷新' : '刷新'}}" aria-disabled="{{loading || refreshing}}" bindtap="refreshPlaces">
+      <image class="location-icon refresh-icon {{refreshing ? 'spinning' : ''}}" src="/assets/actions/map/ditu_ditu_sx.png" mode="aspectFit" />
+    </view>
     <view class="location-button" aria-label="{{locating ? '正在定位' : '定位'}}" bindtap="moveToUserLocation">
       <image class="location-icon" src="/assets/actions/map/ditu_ditu_dw.png" mode="aspectFit" />
     </view>
