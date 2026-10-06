@@ -16,6 +16,7 @@ function createRefreshPage(callFunction, options = {}) {
   const timers = new Map();
   const timerDelays = new Map();
   let timerId = 0;
+  const app = { globalData: {}, getNavMetrics: () => ({ topOffset: 50 }) };
   const mapFile = path.join(root, 'miniprogram/pages/map/map.js');
   const pageRequire = createRequire(mapFile);
   const bounds = {
@@ -29,7 +30,7 @@ function createRefreshPage(callFunction, options = {}) {
         ? { ...module, drawUserLocationFrameToContext: options.drawFrame } : module;
     },
     Date: options.now ? class extends Date { static now() { return options.now(); } } : Date,
-    getApp: () => ({ getNavMetrics: () => ({ topOffset: 50 }) }),
+    getApp: () => app,
     Page: (page) => { definition = page; },
     setTimeout: (callback, delay) => {
       timers.set(++timerId, callback);
@@ -44,7 +45,10 @@ function createRefreshPage(callFunction, options = {}) {
           callFunction(options);
         }
       },
-      setStorageSync: (key, value) => cache.set(key, value),
+      setStorageSync: (key, value) => {
+        assert.ok(Buffer.byteLength(JSON.stringify(value)) < 1024 * 1024, '模拟手机单键缓存上限');
+        cache.set(key, value);
+      },
       getStorageSync: (key) => cache.get(key),
       nextTick: (callback) => Promise.resolve().then(callback),
       getWindowInfo: () => ({ windowWidth: 375, windowHeight: 667 }),
@@ -54,6 +58,7 @@ function createRefreshPage(callFunction, options = {}) {
   }, { filename: mapFile });
   const page = {
     ...definition,
+    places: [],
     data: {
       ...structuredClone(definition.data),
       latitude: 30.5,
@@ -71,7 +76,7 @@ function createRefreshPage(callFunction, options = {}) {
       if (callback) callback();
     }
   };
-  return { page, updates, cache, requests, timers, timerDelays };
+  return { page, updates, cache, requests, timers, timerDelays, app };
 }
 
 const refreshedPlace = { id: 'library', name: '示例图书馆', category: '图书馆', latitude: 31.5, longitude: 121.5 };
@@ -84,6 +89,190 @@ function mockLoadingAnimations(page) {
   page.queueUserLocationDrop = () => { page.dropQueued = true; };
 }
 
+const remoteBounds = {
+  southwest: { latitude: 30, longitude: 120 },
+  northeast: { latitude: 31, longitude: 121 }
+};
+const remotePlace = { ...refreshedPlace, id: 'remote', name: '远处图书馆', latitude: 30.5, longitude: 120.5 };
+
+function fireVisibleLoad(page, timers) {
+  const id = page.visiblePlaceLoadTimer;
+  const callback = timers.get(id);
+  timers.delete(id);
+  callback();
+  return settleRequests();
+}
+
+test('完整地点超过真机传输上限时仍载入全部地点，拖到远处可直接显示', () => {
+  const { page, updates, app, requests } = createRefreshPage(() => {});
+  const places = Array.from({ length: 1677 }, (_, index) => ({
+    ...(index % 2 ? refreshedPlace : remotePlace),
+    id: `place-${index}`,
+    description: '地点说明'.repeat(200),
+    photos: [`https://example.com/${'photo'.repeat(200)}.jpg`]
+  }));
+  assert.ok(Buffer.byteLength(JSON.stringify(places)) > 1024 * 1024);
+  const setData = page.setData;
+  page.setData = function (update, callback) {
+    assert.ok(Buffer.byteLength(JSON.stringify(update)) < 1024 * 1024, '模拟真机 setData 传输上限');
+    setData.call(this, update, callback);
+  };
+  page.applyPlaces(places, '', { preserveCenter: true, preserveSelection: true });
+  assert.equal(page.places.length, 1677);
+  assert.equal(app.globalData.mapPlaces, page.places);
+  assert.equal(Object.hasOwn(page.data, 'places'), false);
+  assert.ok(updates.every((update) => !Object.hasOwn(update, 'places')));
+  page.places = [];
+  assert.equal(page.refreshFromCache(), true);
+  assert.equal(page.places.length, 1677);
+  page.allPlacesLoaded = true;
+  page.onRegionChange({ type: 'end', detail: { region: remoteBounds } });
+  assert.equal(page.data.markers.length, 500);
+  assert.ok(page.data.displayPlaces.every((place) => place.latitude === 30.5));
+  assert.equal(page.data.noResultsInView, false);
+  assert.equal(requests.length, 0);
+});
+
+test('手机缓存写入失败仍可显示下载地点并移到远处', () => {
+  const { page } = createRefreshPage(() => {}, { wx: { setStorageSync() { throw new Error('storage full'); } } });
+  page.applyPlaces([refreshedPlace, remotePlace], '', { preserveCenter: true, preserveSelection: true });
+  page.allPlacesLoaded = true;
+  page.onRegionChange({ type: 'end', detail: { region: remoteBounds } });
+  assert.equal(page.places.length, 2);
+  assert.deepEqual(Array.from(page.data.displayPlaces, (place) => place.id), ['remote']);
+  assert.equal(page.data.noResultsInView, false);
+});
+
+test('全量同步失败后，真机地图事件按新视野补取地点，加载期间不误报空结果', async () => {
+  let visibleRequest;
+  const { page, requests, timers, updates, cache } = createRefreshPage((request) => {
+    if (request.data.mode === 'page') request.fail(new Error('offline'));
+    else visibleRequest = request;
+  });
+  mockLoadingAnimations(page);
+  page.places = [refreshedPlace];
+  cache.set('places:nature-v4', page.places);
+  await page.loadPlaces({ hasCachedPlaces: true });
+  updates.length = 0;
+  page.onRegionChange({ type: 'regionchange', detail: { type: 'end', region: remoteBounds } });
+  assert.equal(page.data.loadingVisiblePlaces, true);
+  assert.equal(page.data.noResultsInView, false);
+  await fireVisibleLoad(page, timers);
+  assert.equal(requests[1].mode, 'bounds');
+  assert.deepEqual(requests[1].bounds, remoteBounds);
+  const pending = page.pendingVisiblePlaceLoad;
+  visibleRequest.success({ result: { data: [remotePlace], hasMore: false } });
+  await pending;
+  assert.equal(page.data.loadingVisiblePlaces, false);
+  assert.deepEqual(Array.from(page.data.displayPlaces, (place) => place.id), ['remote']);
+  assert.equal(page.data.noResultsInView, false);
+  assert.equal(page.places.length, 2);
+  assert.equal(cache.get('places:nature-v4').length, 1);
+  assert.equal(updates.some((update) => ['latitude', 'longitude', 'scale'].some((key) => Object.hasOwn(update, key))), false);
+  page.onRegionChange({ type: 'end', detail: { region: remoteBounds } });
+  assert.equal(page.visiblePlaceLoadTimer, null);
+});
+
+test('快速连续拖动合并请求，旧区域延迟结果不会覆盖当前视野', async () => {
+  const pendingRequests = [];
+  const { page, timers, requests } = createRefreshPage((request) => pendingRequests.push(request));
+  page.onRegionChange({ type: 'end', detail: { region: remoteBounds } });
+  page.onRegionChange({ type: 'end', detail: { region: remoteBounds } });
+  assert.equal(timers.size, 1);
+  await fireVisibleLoad(page, timers);
+  const oldLoad = page.pendingVisiblePlaceLoad;
+  page.onRegionChange({ type: 'begin' });
+  const newBounds = { southwest: { latitude: 31, longitude: 121 }, northeast: { latitude: 32, longitude: 122 } };
+  page.onRegionChange({ type: 'end', detail: { region: newBounds } });
+  await fireVisibleLoad(page, timers);
+  const newLoad = page.pendingVisiblePlaceLoad;
+  pendingRequests[0].success({ result: { data: [remotePlace], hasMore: false } });
+  await oldLoad;
+  assert.equal(page.places.length, 0);
+  assert.equal(page.data.loadingVisiblePlaces, true);
+  assert.equal(page.data.noResultsInView, false);
+  pendingRequests[1].success({ result: { data: [refreshedPlace], hasMore: false } });
+  await newLoad;
+  assert.deepEqual(Array.from(page.data.displayPlaces, (place) => place.id), ['library']);
+  assert.equal(requests.length, 2);
+});
+
+test('区域加载失败显示错误并允许重试，确认空区域后才显示空结果', async () => {
+  let pendingRequest;
+  const { page, timers } = createRefreshPage((request) => { pendingRequest = request; });
+  page.onRegionChange({ type: 'end', detail: { region: remoteBounds } });
+  await fireVisibleLoad(page, timers);
+  const failedLoad = page.pendingVisiblePlaceLoad;
+  pendingRequest.fail(new Error('offline'));
+  await failedLoad;
+  assert.equal(page.data.noResultsInView, false);
+  assert.equal(page.data.loadError, '地点加载失败，请稍后重试');
+  page.onRegionChange({ type: 'end', detail: { region: remoteBounds } });
+  await fireVisibleLoad(page, timers);
+  const retry = page.pendingVisiblePlaceLoad;
+  pendingRequest.success({ result: { data: [], hasMore: false } });
+  await retry;
+  assert.equal(page.data.loadError, '');
+  assert.equal(page.data.noResultsInView, true);
+});
+
+test('页面隐藏取消区域加载，晚到的响应不会改动地点', async () => {
+  let pendingRequest;
+  const { page, timers } = createRefreshPage((request) => { pendingRequest = request; });
+  page.onRegionChange({ type: 'end', detail: { region: remoteBounds } });
+  await fireVisibleLoad(page, timers);
+  const pending = page.pendingVisiblePlaceLoad;
+  page.onHide();
+  pendingRequest.success({ result: { data: [remotePlace], hasMore: false } });
+  await pending;
+  assert.equal(page.places.length, 0);
+  assert.equal(page.data.loadingVisiblePlaces, false);
+});
+
+test('首批附近请求与旧全量结果晚到时，保留拖动后新区域的地点', async () => {
+  const pending = [];
+  const { page, timers } = createRefreshPage((request) => pending.push(request));
+  mockLoadingAnimations(page);
+  const startup = page.loadPlaces();
+  await settleRequests();
+  const nearbyRequest = pending[0];
+  page.onRegionChange({ type: 'end', detail: { region: remoteBounds } });
+  await fireVisibleLoad(page, timers);
+  const visibleLoad = page.pendingVisiblePlaceLoad;
+  pending[1].success({ result: { data: [remotePlace], hasMore: false } });
+  await visibleLoad;
+  nearbyRequest.success({ result: { data: [refreshedPlace], hasMore: false } });
+  await settleRequests();
+  assert.equal(page.places.length, 2);
+  pending[2].success({ result: { data: [refreshedPlace], hasMore: false } });
+  await startup;
+  assert.equal(page.places.length, 2);
+  assert.deepEqual(Array.from(page.data.displayPlaces, (place) => place.id), ['remote']);
+});
+
+test('地图新加载地点在完整缓存同步前即可打开详情，详情不传输整份地点', async () => {
+  let definition;
+  const file = path.join(root, 'miniprogram/pages/detail/detail.js');
+  const detailRequire = createRequire(file);
+  const app = { globalData: { mapPlaces: [remotePlace, { ...remotePlace, id: 'neighbor', name: '相邻图书馆' }] }, getNavMetrics: () => ({}) };
+  vm.runInNewContext(read('miniprogram/pages/detail/detail.js'), {
+    require: (id) => id === '../../utils/map-dot-icon' ? { drawMapDotIcon: () => Promise.resolve('/library.png') } : detailRequire(id),
+    getApp: () => app,
+    Page: (page) => { definition = page; },
+    wx: { getStorageSync: () => [refreshedPlace], showToast: () => assert.fail('会话里的地点应能打开') }
+  }, { filename: file });
+  const page = { ...definition, data: structuredClone(definition.data), setData(update, callback) {
+    assert.equal(Object.hasOwn(update, 'allPlaces'), false);
+    Object.assign(this.data, update);
+    if (callback) callback();
+  } };
+  page.onLoad({ id: 'remote' });
+  await settleRequests();
+  assert.equal(page.data.place.id, 'remote');
+  assert.equal(page.data.nearbyPlaces[0].id, 'neighbor');
+  assert.equal(page.allPlaces.length, 2);
+});
+
 test('刷新范围返回即结束动画，后台分页补齐缓存并保留地图操作', async () => {
   let backgroundRequest;
   const { page, updates, cache, requests, timers, timerDelays } = createRefreshPage((request) => {
@@ -91,11 +280,11 @@ test('刷新范围返回即结束动画，后台分页补齐缓存并保留地�
       request.success({ result: { data: [{ ...refreshedPlace, address: '新地址' }], hasMore: false } });
     } else backgroundRequest = request;
   });
-  page.data.places = [{ ...refreshedPlace, address: '旧地址' }, {
+  page.places = [{ ...refreshedPlace, address: '旧地址' }, {
     id: 'outside', name: '范围外地点', category: '自然', latitude: 30, longitude: 120
   }];
-  cache.set('places:nature-v4', page.data.places);
-  page.data.selectedPlace = page.data.places[0];
+  cache.set('places:nature-v4', page.places);
+  page.data.selectedPlace = page.places[0];
   page.data.userLocation = { latitude: 31.2, longitude: 121.3 };
   page.keepInitialUserLocationCenter = true;
 
@@ -106,7 +295,7 @@ test('刷新范围返回即结束动画，后台分页补齐缓存并保留地�
   assert.deepEqual(requests.map((request) => [request.mode, request.offset]), [['bounds', undefined], ['page', 0]]);
   assert.equal(requests[0].limit, 500);
   assert.equal(page.data.syncingPlaces, true);
-  assert.equal(page.data.places.length, 2);
+  assert.equal(page.places.length, 2);
   assert.equal(page.data.selectedPlace.id, 'library');
   assert.equal(page.data.selectedPlace.address, '新地址');
   assert.equal(page.data.activeFilter, '图书馆');
@@ -145,12 +334,12 @@ test('刷新失败保留原数据与缓存，释放刷新状态并允许重试',
     else success({ result: { data: [refreshedPlace], hasMore: false } });
   });
   const originalPlaces = [refreshedPlace];
-  page.data.places = originalPlaces;
+  page.places = originalPlaces;
   page.data.selectedPlace = refreshedPlace;
   cache.set('places:nature-v4', originalPlaces);
 
   await page.refreshPlaces();
-  assert.equal(page.data.places, originalPlaces);
+  assert.equal(page.places, originalPlaces);
   assert.equal(cache.get('places:nature-v4'), originalPlaces);
   assert.equal(page.data.selectedPlace, refreshedPlace);
   assert.equal(page.data.refreshing, false);
@@ -167,10 +356,10 @@ test('刷新失败保留原数据与缓存，释放刷新状态并允许重试',
 test('刷新空范围清除范围内旧点位与卡片，完整同步后更新缓存', async () => {
   let results = [];
   const { page, cache } = createRefreshPage(({ success }) => success({ result: { data: results, hasMore: false } }));
-  page.data.places = [refreshedPlace];
+  page.places = [refreshedPlace];
   page.data.selectedPlace = refreshedPlace;
   await page.refreshPlaces();
-  assert.equal(page.data.places.length, 0);
+  assert.equal(page.places.length, 0);
   assert.equal(page.data.markers.length, 0);
   assert.equal(page.data.selectedPlace, null);
   await page.pendingPlaceLoad;
@@ -179,7 +368,7 @@ test('刷新空范围清除范围内旧点位与卡片，完整同步后更新�
 
   results = [refreshedPlace];
   await page.refreshPlaces();
-  assert.equal(page.data.places.length, 1);
+  assert.equal(page.places.length, 1);
   assert.equal(page.data.selectedPlace, null);
   assert.equal(page.data.noResultsInView, false);
 });
@@ -207,7 +396,7 @@ test('没有用户定位时正常刷新数据，波纹保持隐藏', async () =>
   const { page, timers } = createRefreshPage(({ success }) => success({ result: { data: [refreshedPlace], hasMore: false } }));
   page.data.userLocation = null;
   await page.refreshPlaces();
-  assert.equal(page.data.places.length, 1);
+  assert.equal(page.places.length, 1);
   assert.equal(page.data.refreshing, false);
   assert.equal(page.data.refreshRippleVisible, false);
   assert.equal(timers.size, 0);
@@ -237,21 +426,21 @@ test('范围结果截断时保留未返回旧点位，完整结果删除旧点�
   });
   const stale = { ...refreshedPlace, id: 'stale' };
   const outside = { ...refreshedPlace, id: 'outside', latitude: 30 };
-  page.data.places = [stale, outside];
+  page.places = [stale, outside];
   page.data.selectedPlace = stale;
   await page.refreshPlaces();
-  assert.deepEqual(Array.from(page.data.places, (place) => place.id), ['stale', 'outside', 'library']);
+  assert.deepEqual(Array.from(page.places, (place) => place.id), ['stale', 'outside', 'library']);
   assert.equal(page.data.selectedPlace.id, 'stale');
 
   hasMore = false;
   await page.refreshPlaces();
-  assert.deepEqual(Array.from(page.data.places, (place) => place.id), ['outside', 'library']);
+  assert.deepEqual(Array.from(page.places, (place) => place.id), ['outside', 'library']);
   assert.equal(page.data.selectedPlace, null);
   assert.equal(requests.filter((request) => request.mode === 'page').length, 1);
   const fullSync = page.pendingPlaceLoad;
   backgroundRequest.success({ result: { data: [stale, outside], hasMore: false } });
   await fullSync;
-  assert.deepEqual(Array.from(page.data.places, (place) => place.id), ['outside', 'library']);
+  assert.deepEqual(Array.from(page.places, (place) => place.id), ['outside', 'library']);
 });
 
 test('后台同步失败保留已成功刷新的范围结果与旧完整缓存', async () => {
@@ -267,7 +456,7 @@ test('后台同步失败保留已成功刷新的范围结果与旧完整缓存',
   const fullSync = page.pendingPlaceLoad;
   backgroundRequest.fail(new Error('background unavailable'));
   await fullSync;
-  assert.equal(page.data.places[0].address, '新地址');
+  assert.equal(page.places[0].address, '新地址');
   assert.equal(page.data.loadError, '');
   assert.equal(page.data.refreshRippleVisible, true);
   assert.equal(page.data.syncingPlaces, false);
@@ -276,11 +465,11 @@ test('后台同步失败保留已成功刷新的范围结果与旧完整缓存',
 
 test('读取地图范围失败时保留数据并释放刷新状态', async () => {
   const { page, requests } = createRefreshPage(() => {});
-  page.data.places = [refreshedPlace];
+  page.places = [refreshedPlace];
   page.getCurrentMapRegion = () => Promise.reject(new Error('map unavailable'));
   await page.refreshPlaces();
   assert.equal(page.data.refreshing, false);
-  assert.equal(page.data.places[0].id, 'library');
+  assert.equal(page.places[0].id, 'library');
   assert.equal(page.data.loadError, '刷新失败，请稍后重试');
   assert.equal(requests.length, 0);
 });
@@ -298,7 +487,7 @@ test('首页缓存立即可用，地点请求不等待定位与图标准备', as
   page.prepareMapDotIcons = () => new Promise((resolve) => { resolveMapIcons = resolve; });
   page.prepareUserLocationIcons = () => new Promise((resolve) => { resolveUserIcon = resolve; });
   const startup = page.onLoad();
-  assert.equal(page.data.places[0].id, 'library');
+  assert.equal(page.places[0].id, 'library');
   assert.equal(page.data.loading, false);
   await settleRequests();
   assert.equal(requests.length, 1);
@@ -309,7 +498,7 @@ test('首页缓存立即可用，地点请求不等待定位与图标准备', as
   cloudRequest.success({ result: { data: [{ ...refreshedPlace, address: '最新地址' }] } });
   await settleRequests();
   assert.equal(page.data.syncingPlaces, false);
-  assert.equal(page.data.places[0].address, '最新地址');
+  assert.equal(page.places[0].address, '最新地址');
   assert.equal(page.data.locating, true);
   assert.equal(page.searchFinishes, 0);
 
@@ -336,7 +525,7 @@ test('首批数据解除加载，刷新范围不等待已有全量同步', async
   await settleRequests();
   visibleRequest.success({ result: { data: [refreshedPlace], hasMore: false } });
   await settleRequests();
-  assert.equal(page.data.places.length, 1);
+  assert.equal(page.places.length, 1);
   assert.equal(page.data.loading, false);
   assert.equal(page.data.syncingPlaces, true);
   assert.equal(page.searchFinishes, 1);
@@ -517,12 +706,12 @@ test('画布持续不可用时释放落地等待，后续定位仍可重新尝�
 test('后台全量同步失败保留可用缓存并释放同步状态', async () => {
   const { page, cache } = createRefreshPage(({ fail }) => fail(new Error('offline')));
   mockLoadingAnimations(page);
-  page.data.places = [refreshedPlace];
+  page.places = [refreshedPlace];
   cache.set('places:nature-v4', [refreshedPlace]);
   const complete = page.loadPlaces({ hasCachedPlaces: true });
   assert.equal(page.data.loading, false);
   await complete;
-  assert.equal(page.data.places[0].id, 'library');
+  assert.equal(page.places[0].id, 'library');
   assert.equal(cache.get('places:nature-v4')[0].id, 'library');
   assert.equal(page.data.syncingPlaces, false);
   assert.equal(page.pendingPlaceLoad, null);
@@ -542,7 +731,7 @@ test('范围首批失败时由全量请求恢复地点并结束加载', async ()
   await complete;
   assert.equal(page.data.loading, false);
   assert.equal(page.data.syncingPlaces, false);
-  assert.equal(page.data.places[0].id, 'library');
+  assert.equal(page.places[0].id, 'library');
 });
 
 test('远程地点载入期间复用定位小人竖轴旋转动画', () => {

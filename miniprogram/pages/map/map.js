@@ -18,6 +18,7 @@ const {
   placesToMarkers
 } = require('../../utils/place-utils');
 const { drawMapDotIcon } = require('../../utils/map-dot-icon');
+const { readPlacesCache, writePlacesCache } = require('../../utils/place-cache');
 const {
   USER_LOCATION_DROP_FRAMES,
   USER_LOCATION_JUMP_FRAMES,
@@ -48,10 +49,10 @@ const SELECTED_MARKER_MAX_SIZE = 47;
 const CARD_SWIPE_DURATION_MS = 200;
 const BOTTOM_SHEET_OCCLUDED_RPX = 298;
 const MARKER_EDGE_GUARD_PX = 28;
-const PLACES_CACHE_KEY = 'places:nature-v4';
 const PLACE_PAGE_SIZE = 500;
 const MAX_PLACE_PAGE_COUNT = 50;
 const MAX_VISIBLE_PLACE_COUNT = 500;
+const VISIBLE_PLACE_LOAD_DELAY_MS = 250;
 const REFRESH_RIPPLE_DURATION_MS = 1500;
 
 function mergeVisiblePlaceSnapshot(places, snapshot) {
@@ -151,7 +152,13 @@ function withDisplayMeta(place) {
     return null;
   }
   return {
-    ...place,
+    id: place.id,
+    name: place.name,
+    category: place.category,
+    latitude: place.latitude,
+    longitude: place.longitude,
+    address: place.address,
+    hours: place.hours,
     displayAddress: getPlaceDisplayAddress(place),
     displayHours: getPlaceDisplayHours(place),
     navigationLabel: getPlaceNavigationLabel(place)
@@ -167,7 +174,6 @@ Page({
     categoryTabs: createCategoryTabs('全部'),
     activeFilter: '全部',
     activeCategories: CATEGORY_OPTIONS,
-    places: [],
     displayPlaces: [],
     markerPlaceIds: [],
     markers: [],
@@ -185,6 +191,7 @@ Page({
     iconsReady: false,
     loading: true,
     syncingPlaces: false,
+    loadingVisiblePlaces: false,
     refreshing: false,
     refreshRippleVisible: false,
     refreshRippleX: 0,
@@ -198,6 +205,7 @@ Page({
   },
 
   onLoad() {
+    this.places = [];
     const hasCachedPlaces = this.refreshFromCache();
     const locationReady = this.resolveInitialSelectionLocation();
     if (typeof wx.nextTick === 'function') {
@@ -220,13 +228,14 @@ Page({
   onShow() {
     this.mapPageHidden = false;
     this.startSelectedMarkerBreathing();
-    if (!this.data.places.length && this.data.iconsReady) {
+    if (!this.getLoadedPlaces().length && this.data.iconsReady) {
       this.refreshFromCache();
     }
   },
 
   onHide() {
     this.mapPageHidden = true;
+    this.cancelVisiblePlaceLoad();
     this.stopRefreshRipple();
     this.stopSelectedMarkerBreathing();
     this.placeLoadAnimationActive = false;
@@ -237,6 +246,7 @@ Page({
 
   onUnload() {
     this.mapPageHidden = true;
+    this.cancelVisiblePlaceLoad();
     this.stopRefreshRipple();
     this.stopSelectedMarkerBreathing();
     this.placeLoadAnimationActive = false;
@@ -406,7 +416,7 @@ Page({
   },
 
   refreshFromCache() {
-    const places = wx.getStorageSync(PLACES_CACHE_KEY);
+    const places = readPlacesCache(wx);
     if (Array.isArray(places) && places.length) {
       this.applyPlaces(places, '', { preserveCenter: true, writeCache: false });
       return true;
@@ -425,6 +435,67 @@ Page({
     });
   },
 
+  getLoadedPlaces() {
+    return this.places || [];
+  },
+
+  cancelVisiblePlaceLoad() {
+    if (this.visiblePlaceLoadTimer) {
+      clearTimeout(this.visiblePlaceLoadTimer);
+      this.visiblePlaceLoadTimer = null;
+    }
+    this.visiblePlaceLoadRunId = (this.visiblePlaceLoadRunId || 0) + 1;
+    this.pendingVisibleBoundsKey = null;
+    if (this.data.loadingVisiblePlaces) this.setData({ loadingVisiblePlaces: false });
+  },
+
+  scheduleVisiblePlaceLoad(region) {
+    if (!wx.cloud || this.allPlacesLoaded || this.mapPageHidden) return;
+    const boundsKey = region ? JSON.stringify(region) : null;
+    if (boundsKey && (boundsKey === this.loadedVisibleBoundsKey || boundsKey === this.pendingVisibleBoundsKey)) return;
+    this.cancelVisiblePlaceLoad();
+    const runId = this.visiblePlaceLoadRunId;
+    this.pendingVisibleBoundsKey = boundsKey;
+    this.setData({ loadingVisiblePlaces: true, noResultsInView: false, loadError: '' });
+    this.visiblePlaceLoadTimer = setTimeout(() => {
+      this.visiblePlaceLoadTimer = null;
+      this.pendingVisiblePlaceLoad = this.fetchVisiblePlaces(region, runId);
+    }, VISIBLE_PLACE_LOAD_DELAY_MS);
+  },
+
+  async fetchVisiblePlaces(region, runId) {
+    try {
+      const bounds = region || await this.getCurrentMapRegion();
+      if (runId !== this.visiblePlaceLoadRunId || this.mapPageHidden) return;
+      const result = await this.callGetPlaces({ mode: 'bounds', bounds, limit: MAX_VISIBLE_PLACE_COUNT });
+      if (runId !== this.visiblePlaceLoadRunId || this.mapPageHidden) return;
+      const snapshot = {
+        bounds,
+        places: Array.isArray(result.data) ? result.data : [],
+        complete: result.hasMore === false
+      };
+      this.loadedVisibleBoundsKey = JSON.stringify(bounds);
+      if (this.pendingPlaceLoad) {
+        this.placeRefreshSnapshots = (this.placeRefreshSnapshots || []).concat(snapshot);
+      }
+      this.applyPlaces(mergeVisiblePlaceSnapshot(this.getLoadedPlaces(), snapshot), '', {
+        preserveCenter: true,
+        preserveSelection: true,
+        writeCache: false
+      });
+    } catch (error) {
+      if (runId === this.visiblePlaceLoadRunId && !this.mapPageHidden) {
+        this.setData({ loadError: '地点加载失败，请稍后重试' });
+      }
+    } finally {
+      if (runId === this.visiblePlaceLoadRunId && !this.mapPageHidden) {
+        this.pendingVisibleBoundsKey = null;
+        this.pendingVisiblePlaceLoad = null;
+        this.setData({ loadingVisiblePlaces: false }, () => this.updateVisibleMarkers());
+      }
+    }
+  },
+
   getCurrentMapRegion() {
     return new Promise((resolve, reject) => {
       wx.createMapContext('studyMap').getRegion({ success: resolve, fail: reject });
@@ -433,14 +504,18 @@ Page({
 
   loadVisiblePlaces() {
     return this.getCurrentMapRegion()
-      .then((bounds) => this.callGetPlaces({ mode: 'bounds', bounds, limit: MAX_VISIBLE_PLACE_COUNT }))
-      .then((result) => {
+      .then((bounds) => this.callGetPlaces({ mode: 'bounds', bounds, limit: MAX_VISIBLE_PLACE_COUNT }).then((result) => {
         const places = Array.isArray(result.data) ? result.data : [];
         if (places.length) {
-          this.applyPlaces(places, '', { preserveCenter: true, writeCache: false });
+          const snapshot = { bounds, places, complete: result.hasMore === false };
+          this.applyPlaces(mergeVisiblePlaceSnapshot(this.getLoadedPlaces(), snapshot), '', {
+            preserveCenter: true,
+            preserveSelection: Boolean(this.getLoadedPlaces().length),
+            writeCache: false
+          });
         }
         return places;
-      });
+      }));
   },
 
   loadAllPlacePages(offset = 0, collected = [], pageCount = 0) {
@@ -456,7 +531,7 @@ Page({
   },
 
   loadPlaces(options = {}) {
-    const hasCachedPlaces = Boolean(options.hasCachedPlaces || this.data.places.length);
+    const hasCachedPlaces = Boolean(options.hasCachedPlaces || this.getLoadedPlaces().length);
     this.setData({ loading: !hasCachedPlaces, syncingPlaces: Boolean(wx.cloud), loadError: '' });
 
     if (wx.cloud) {
@@ -495,8 +570,9 @@ Page({
           preserveCenter: true,
           preserveSelection: true
         });
+        this.allPlacesLoaded = true;
       } catch (error) {
-        if (this.data.loading && !this.data.places.length) {
+        if (this.data.loading && !this.getLoadedPlaces().length) {
           this.applyPlaces([], '地点加载失败，请稍后重试', { preserveCenter: true, writeCache: false });
         }
       } finally {
@@ -529,7 +605,7 @@ Page({
         })))
       .then((snapshot) => {
         this.placeRefreshSnapshots = (this.placeRefreshSnapshots || []).concat(snapshot);
-        this.applyPlaces(mergeVisiblePlaceSnapshot(this.data.places, snapshot), '', {
+        this.applyPlaces(mergeVisiblePlaceSnapshot(this.getLoadedPlaces(), snapshot), '', {
           preserveCenter: true,
           preserveSelection: true,
           writeCache: false
@@ -600,15 +676,17 @@ Page({
     );
     this.keepInitialUserLocationCenter = false;
 
-    if (options.writeCache !== false) wx.setStorageSync(PLACES_CACHE_KEY, places);
+    if (options.writeCache !== false) writePlacesCache(wx, places);
     const centerUpdate = options.preserveCenter ? {} : (keepUserLocationCenter
       ? { latitude: this.data.userLocation.latitude, longitude: this.data.userLocation.longitude }
       : {
         latitude: selectedPlace ? selectedPlace.latitude : this.data.latitude,
         longitude: selectedPlace ? selectedPlace.longitude : this.data.longitude
       });
+    // Full records stay in the logic layer; only visible card fields cross setData.
+    this.places = places;
+    getApp().globalData.mapPlaces = places;
     this.setData({
-      places,
       ...centerUpdate,
       selectedPlace: keepUserLocationCenter ? null : this.withDisplayState(selectedPlace),
       loadError: loadError || ''
@@ -653,7 +731,7 @@ Page({
       }, {});
       wx.setStorageSync('mapDotIconPaths', mapDotIconPaths);
       this.setData({ mapDotIconPaths, selectedMapDotIconPaths, iconsReady: true }, () => {
-        if (this.data.places.length) {
+        if (this.getLoadedPlaces().length) {
           this.updateVisibleMarkers();
         }
       });
@@ -1028,7 +1106,7 @@ Page({
       selectedPlaceId: this.data.selectedPlace && this.data.selectedPlace.id,
       mapDotIconPaths: this.data.mapDotIconPaths,
       selectedMapDotIconPaths: this.data.selectedMapDotIconPaths,
-      allPlaceIds: this.data.places.map((place) => place.id)
+      allPlaceIds: this.getLoadedPlaces().map((place) => place.id)
     });
 
     const animationVisible = Object.prototype.hasOwnProperty.call(overrides, 'userLocationAnimationVisible')
@@ -1137,8 +1215,15 @@ Page({
   },
 
   onRegionChange(event) {
-    if (event.type === 'end') {
-      this.updateVisibleMarkers();
+    const detail = event.detail || {};
+    if (event.type === 'begin' || detail.type === 'begin') {
+      this.latestMapRegion = null;
+      this.cancelVisiblePlaceLoad();
+    }
+    if (event.type === 'end' || detail.type === 'end') {
+      this.latestMapRegion = detail.region || null;
+      this.scheduleVisiblePlaceLoad(this.latestMapRegion);
+      this.updateVisibleMarkers(this.latestMapRegion);
       if (this.pendingUserLocationDrop) {
         if (this.userLocationDropStartTimer) {
           clearTimeout(this.userLocationDropStartTimer);
@@ -1153,9 +1238,11 @@ Page({
     }
   },
 
-  updateVisibleMarkers() {
+  updateVisibleMarkers(region = this.latestMapRegion) {
+    const updateId = this.visibleMarkerUpdateId = (this.visibleMarkerUpdateId || 0) + 1;
     const map = wx.createMapContext('studyMap');
     const applyVisiblePlaces = (visiblePlaces, region) => {
+      if (updateId !== this.visibleMarkerUpdateId) return;
       const shouldAutoSelect = this.shouldAutoSelectVisiblePlace;
       const unorderedDisplayPlaces = visiblePlaces.map((place) => this.withDisplayState(place));
       const visibleSelectedPlace = this.data.selectedPlace
@@ -1184,14 +1271,14 @@ Page({
         markerPlaceIds: visiblePlaces.map((place) => place.id),
         selectedPlace,
         selectedPlaceIndex,
-        noResultsInView: !this.data.loading && !this.data.syncingPlaces && !this.data.loadError && visiblePlaces.length === 0,
+        noResultsInView: !this.data.loading && !this.data.syncingPlaces && !this.data.loadingVisiblePlaces && !this.data.loadError && visiblePlaces.length === 0,
         emptyStateText: '附近没有结果'
       }, () => {
         this.syncMarkers(displayPlaces);
       });
     };
     const applyRegion = () => {
-      map.getRegion({
+      const handlers = {
         success: (region) => {
           const cardWillShow = Boolean(this.data.selectedPlace || this.shouldAutoSelectVisiblePlace);
           const occlusion = getMapVerticalOcclusionRatios(this.data.navMetrics, cardWillShow);
@@ -1200,7 +1287,7 @@ Page({
             occlusion.top,
             occlusion.bottom
           );
-          const visiblePlaces = getDisplayPlaces(this.data.places, {
+          const visiblePlaces = getDisplayPlaces(this.getLoadedPlaces(), {
             categories: this.data.activeCategories,
             bounds: markerBounds,
             maxCount: MAX_VISIBLE_PLACE_COUNT,
@@ -1209,14 +1296,16 @@ Page({
           applyVisiblePlaces(visiblePlaces, region);
         },
         fail: () => {
-          const visiblePlaces = getDisplayPlaces(this.data.places, {
+          const visiblePlaces = getDisplayPlaces(this.getLoadedPlaces(), {
             categories: this.data.activeCategories,
             maxCount: MAX_VISIBLE_PLACE_COUNT,
             pinnedPlaceIds: [this.data.selectedPlace && this.data.selectedPlace.id]
           });
           applyVisiblePlaces(visiblePlaces);
         }
-      });
+      };
+      if (region) handlers.success(region);
+      else map.getRegion(handlers);
     };
     applyRegion();
   },
@@ -1268,7 +1357,7 @@ Page({
 
   openLocation(event) {
     const placeId = event.currentTarget.dataset.id || (this.data.selectedPlace && this.data.selectedPlace.id);
-    const place = this.data.places.find((item) => item.id === placeId);
+    const place = this.getLoadedPlaces().find((item) => item.id === placeId);
     if (!place) {
       return;
     }

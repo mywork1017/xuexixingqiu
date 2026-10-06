@@ -14,7 +14,7 @@ const {
   sanitizePlaceDescription
 } = require('../../utils/place-utils');
 const { drawMapDotIcon } = require('../../utils/map-dot-icon');
-const PLACES_CACHE_KEY = 'places:nature-v4';
+const { readPlacesCache } = require('../../utils/place-cache');
 
 function createCategoryTabs(activeFilter) {
   return CATEGORY_FILTER_OPTIONS.map((category) => ({
@@ -42,7 +42,6 @@ Page({
   data: {
     navMetrics: getApp().getNavMetrics(),
     place: null,
-    allPlaces: [],
     nearbyFilter: '全部',
     nearbyCategories: CATEGORY_OPTIONS,
     nearbyCategoryTabs: createCategoryTabs('全部'),
@@ -52,8 +51,9 @@ Page({
 
   onLoad(options) {
     const placeId = decodeURIComponent(options.id || '');
-    const cachedPlaces = wx.getStorageSync(PLACES_CACHE_KEY);
-    const places = Array.isArray(cachedPlaces) ? cachedPlaces : [];
+    const cachedPlaces = readPlacesCache(wx);
+    const sessionPlaces = getApp().globalData.mapPlaces;
+    const places = Array.isArray(sessionPlaces) ? sessionPlaces : (Array.isArray(cachedPlaces) ? cachedPlaces : []);
     const normalizedPlaces = places.map(normalizePlace).filter((place) => !isExcludedPlaceType(place));
     const place = normalizedPlaces.find((item) => item.id === placeId);
     if (!place) {
@@ -64,9 +64,9 @@ Page({
       return;
     }
 
+    this.allPlaces = normalizedPlaces;
     this.setData({
-      place: withCategoryMeta(place),
-      allPlaces: normalizedPlaces
+      place: withCategoryMeta(place)
     }, () => {
       this.refreshNearbyPlaces();
       this.prepareDetailMapMarker(place);
@@ -141,11 +141,13 @@ Page({
       return;
     }
 
-    const nearbyPlaces = getNearbyPlaces(this.data.place, this.data.allPlaces, {
+    const nearbyPlaces = getNearbyPlaces(this.data.place, this.allPlaces || [], {
       radiusKm: 2,
       categories: this.data.nearbyCategories
-    }).map((place) => withCategoryMeta({
-      ...place,
+    }).map((place) => ({
+      id: place.id,
+      name: place.name,
+      address: place.address,
       distanceText: getDistanceText(place.distanceKm)
     }));
 
